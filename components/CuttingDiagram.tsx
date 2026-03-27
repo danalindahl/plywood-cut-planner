@@ -68,49 +68,64 @@ export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0, showLab
         {/* Placed pieces */}
         {layout.placements.map((placement, i) => {
           const color = colorMap.get(placement.pieceId) || '#42A5F5';
-          const fontSize = Math.min(placement.width, placement.height) * 0.2;
+          const pw = placement.width;
+          const ph = placement.height;
+          const cx = placement.x + pw / 2;
+          const cy = placement.y + ph / 2;
+
+          // Rotate text when piece is taller than wide
+          const vertical = ph > pw * 1.3;
+          const fitDim = vertical ? ph : pw;
+          const fontSize = Math.min(fitDim * 0.12, Math.min(pw, ph) * 0.25);
           const clampedFontSize = Math.max(3, Math.min(fontSize, 8));
+          const rotation = vertical ? `rotate(-90, ${cx}, ${cy})` : undefined;
 
           const dimText = placement.rotated
             ? `${placement.height}×${placement.width} ↻`
             : `${placement.width}×${placement.height}`;
+
+          const minShowDim = vertical ? 6 : 6;
+          const canShowLabel = pw > minShowDim && ph > minShowDim;
+          const canShowDims = (vertical ? ph > 14 : pw > 14) && Math.min(pw, ph) > 5;
 
           return (
             <React.Fragment key={i}>
               <Rect
                 x={placement.x}
                 y={placement.y}
-                width={placement.width}
-                height={placement.height}
+                width={pw}
+                height={ph}
                 fill={color}
                 stroke="#fff"
                 strokeWidth={0.5}
                 opacity={0.85}
               />
               {/* Piece label */}
-              {showLabels && placement.width > 6 && placement.height > 6 && (
+              {showLabels && canShowLabel && (
                 <SvgText
-                  x={placement.x + placement.width / 2}
-                  y={placement.y + placement.height / 2 - clampedFontSize * 0.3}
+                  x={cx}
+                  y={cy - (canShowDims ? clampedFontSize * 0.4 : 0)}
                   fontSize={clampedFontSize}
                   fill="#fff"
                   fontWeight="bold"
                   textAnchor="middle"
                   alignmentBaseline="middle"
+                  transform={rotation}
                 >
                   {placement.pieceLabel || placement.pieceId}
                 </SvgText>
               )}
               {/* Dimensions on piece */}
-              {showLabels && placement.width > 10 && placement.height > 8 && (
+              {showLabels && canShowDims && (
                 <SvgText
-                  x={placement.x + placement.width / 2}
-                  y={placement.y + placement.height / 2 + clampedFontSize * 0.8}
+                  x={cx}
+                  y={cy + clampedFontSize * 0.7}
                   fontSize={clampedFontSize * 0.75}
                   fill="#fff"
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   opacity={0.9}
+                  transform={rotation}
                 >
                   {dimText}
                 </SvgText>
