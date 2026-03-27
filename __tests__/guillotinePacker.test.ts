@@ -26,6 +26,15 @@ const defaultSettings: Settings = {
   units: 'imperial',
   optimizationMode: 'less_waste',
   trimming: { top: 0, bottom: 0, left: 0, right: 0 },
+  showLabelsOnDiagram: true,
+  useOneSheetType: false,
+  considerMaterial: false,
+  considerGrain: false,
+  firstCutDirection: 'auto',
+  dimensionOrder: 'WxL',
+  decimalPlaces: 2,
+  minOffcutDimension: 6,
+  stackIdenticalLayouts: false,
 };
 
 const settingsWithKerf: Settings = {
@@ -110,11 +119,12 @@ describe('Guillotine Packer', () => {
       expect(result.unplacedPieces).toHaveLength(0);
     });
 
-    test('piece does NOT rotate when canRotate is false', () => {
+    test('piece does NOT rotate when canRotate is false and considerGrain is on', () => {
+      const grainSettings = { ...defaultSettings, considerGrain: true };
       const result = packPieces(
         [piece('a', 'Wide', 96, 20, 1, false)],
         [sheet(48, 96)],
-        defaultSettings
+        grainSettings
       );
       expect(result.unplacedPieces).toHaveLength(1);
     });

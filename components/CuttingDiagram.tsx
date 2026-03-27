@@ -9,9 +9,10 @@ interface CuttingDiagramProps {
   layout: SheetLayout;
   sheetIndex: number;
   zoom?: number;
+  showLabels?: boolean;
 }
 
-export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0 }: CuttingDiagramProps) {
+export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0, showLabels = true }: CuttingDiagramProps) {
   const { width: windowWidth } = useWindowDimensions();
   const padding = 32;
   const maxWidth = (windowWidth - padding * 2) * zoom;
@@ -87,7 +88,7 @@ export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0 }: Cutti
                 opacity={0.85}
               />
               {/* Piece label */}
-              {placement.width > 6 && placement.height > 6 && (
+              {showLabels && placement.width > 6 && placement.height > 6 && (
                 <SvgText
                   x={placement.x + placement.width / 2}
                   y={placement.y + placement.height / 2 - clampedFontSize * 0.3}
@@ -101,7 +102,7 @@ export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0 }: Cutti
                 </SvgText>
               )}
               {/* Dimensions on piece */}
-              {placement.width > 10 && placement.height > 8 && (
+              {showLabels && placement.width > 10 && placement.height > 8 && (
                 <SvgText
                   x={placement.x + placement.width / 2}
                   y={placement.y + placement.height / 2 + clampedFontSize * 0.8}

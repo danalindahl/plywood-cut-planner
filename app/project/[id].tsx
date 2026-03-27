@@ -34,6 +34,7 @@ export default function ProjectEditorScreen() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [initialized, setInitialized] = useState(false);
   const [showTrimming, setShowTrimming] = useState(false);
+  const [showEdgeBanding, setShowEdgeBanding] = useState(false);
 
   useEffect(() => {
     if (project && !initialized) {
@@ -113,6 +114,19 @@ export default function ProjectEditorScreen() {
     const copy = { ...original, id: generateId(), label: original.label ? `${original.label} (copy)` : '' };
     const updated = [...cutPieces];
     updated.splice(index + 1, 0, copy);
+    setCutPieces(updated);
+  }
+
+  function toggleAllPieces() {
+    const allEnabled = cutPieces.every((p) => p.enabled !== false);
+    setCutPieces(cutPieces.map((p) => ({ ...p, enabled: !allEnabled })));
+  }
+
+  function updateEdgeBanding(index: number, side: 'top' | 'bottom' | 'left' | 'right', value: boolean) {
+    const updated = [...cutPieces];
+    const piece = updated[index];
+    const eb = piece.edgeBanding || { top: false, bottom: false, left: false, right: false };
+    updated[index] = { ...piece, edgeBanding: { ...eb, [side]: value } };
     setCutPieces(updated);
   }
 
@@ -305,8 +319,9 @@ export default function ProjectEditorScreen() {
             <Text style={{ color: colors.tint, fontSize: 14, fontWeight: '600' }}>+ Add Stock Size</Text>
           </TouchableOpacity>
 
-          {/* Settings row */}
+          {/* Options */}
           <View style={[styles.settingsBlock, { backgroundColor: colors.card }]}>
+            {/* Kerf */}
             <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
               <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Blade Kerf ({unitLabel}):</Text>
               <TextInput
@@ -318,36 +333,95 @@ export default function ProjectEditorScreen() {
               />
             </View>
 
+            {/* Units */}
             <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
               <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Units:</Text>
               <View style={[styles.toggleRow, { backgroundColor: colors.card }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleBtn,
-                    settings.units === 'imperial' && { backgroundColor: colors.tint },
-                    { borderColor: colors.tint },
-                  ]}
-                  onPress={() => setSettings({ ...settings, units: 'imperial' })}
-                >
-                  <Text style={{ color: settings.units === 'imperial' ? '#fff' : colors.tint, fontSize: 13, fontWeight: '600' }}>
-                    Inches
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleBtn,
-                    settings.units === 'metric' && { backgroundColor: colors.tint },
-                    { borderColor: colors.tint },
-                  ]}
-                  onPress={() => setSettings({ ...settings, units: 'metric' })}
-                >
-                  <Text style={{ color: settings.units === 'metric' ? '#fff' : colors.tint, fontSize: 13, fontWeight: '600' }}>
-                    mm
-                  </Text>
-                </TouchableOpacity>
+                {(['imperial', 'metric'] as const).map((u) => (
+                  <TouchableOpacity
+                    key={u}
+                    style={[styles.toggleBtn, settings.units === u && { backgroundColor: colors.tint }, { borderColor: colors.tint }]}
+                    onPress={() => setSettings({ ...settings, units: u })}
+                  >
+                    <Text style={{ color: settings.units === u ? '#fff' : colors.tint, fontSize: 13, fontWeight: '600' }}>
+                      {u === 'imperial' ? 'Inches' : 'mm'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
+            {/* Optimization Priority */}
+            <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
+              <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Optimize for:</Text>
+              <View style={[styles.toggleRow, { backgroundColor: colors.card }]}>
+                {([['less_waste', 'Less Waste'], ['fewer_cuts', 'Fewer Cuts']] as const).map(([val, label]) => (
+                  <TouchableOpacity
+                    key={val}
+                    style={[styles.toggleBtn, settings.optimizationMode === val && { backgroundColor: colors.tint }, { borderColor: colors.tint }]}
+                    onPress={() => setSettings({ ...settings, optimizationMode: val })}
+                  >
+                    <Text style={{ color: settings.optimizationMode === val ? '#fff' : colors.tint, fontSize: 12, fontWeight: '600' }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Toggle switches */}
+            <ToggleSwitch label="Labels on diagram" value={settings.showLabelsOnDiagram !== false} onToggle={(v) => setSettings({ ...settings, showLabelsOnDiagram: v })} colors={colors} />
+            <ToggleSwitch label="Consider grain direction" value={!!settings.considerGrain} onToggle={(v) => setSettings({ ...settings, considerGrain: v })} colors={colors} />
+            <ToggleSwitch label="Consider material" value={!!settings.considerMaterial} onToggle={(v) => setSettings({ ...settings, considerMaterial: v })} colors={colors} />
+            <ToggleSwitch label="Use only one sheet type" value={!!settings.useOneSheetType} onToggle={(v) => setSettings({ ...settings, useOneSheetType: v })} colors={colors} />
+            <ToggleSwitch label="Stack identical layouts" value={!!settings.stackIdenticalLayouts} onToggle={(v) => setSettings({ ...settings, stackIdenticalLayouts: v })} colors={colors} />
+            <ToggleSwitch label="Edge banding" value={showEdgeBanding} onToggle={(v) => setShowEdgeBanding(v)} colors={colors} />
+
+            {/* Min offcut dimension */}
+            <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
+              <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Min offcut ({unitLabel}):</Text>
+              <TextInput
+                style={[styles.input, styles.kerfInput, { color: colors.text, borderColor: colors.border }]}
+                value={settings.minOffcutDimension ? String(settings.minOffcutDimension) : ''}
+                onChangeText={(t) => setSettings({ ...settings, minOffcutDimension: parseFraction(t) })}
+                placeholder="6"
+                placeholderTextColor={colors.secondaryText}
+              />
+            </View>
+
+            {/* Decimal places */}
+            <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
+              <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Decimal places:</Text>
+              <View style={[styles.toggleRow, { backgroundColor: colors.card }]}>
+                {[0, 1, 2, 3].map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.toggleBtn, { borderColor: colors.tint, paddingHorizontal: 10 }, (settings.decimalPlaces ?? 2) === d && { backgroundColor: colors.tint }]}
+                    onPress={() => setSettings({ ...settings, decimalPlaces: d })}
+                  >
+                    <Text style={{ color: (settings.decimalPlaces ?? 2) === d ? '#fff' : colors.tint, fontSize: 12, fontWeight: '600' }}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Dimension order */}
+            <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
+              <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Dimensions:</Text>
+              <View style={[styles.toggleRow, { backgroundColor: colors.card }]}>
+                {([['WxL', 'W × L'], ['LxW', 'L × W']] as const).map(([val, label]) => (
+                  <TouchableOpacity
+                    key={val}
+                    style={[styles.toggleBtn, { borderColor: colors.tint }, (settings.dimensionOrder || 'WxL') === val && { backgroundColor: colors.tint }]}
+                    onPress={() => setSettings({ ...settings, dimensionOrder: val })}
+                  >
+                    <Text style={{ color: (settings.dimensionOrder || 'WxL') === val ? '#fff' : colors.tint, fontSize: 12, fontWeight: '600' }}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Edge Trimming */}
             <TouchableOpacity
               style={[styles.settingsRow, { backgroundColor: colors.card }]}
               onPress={() => setShowTrimming(!showTrimming)}
@@ -368,10 +442,7 @@ export default function ProjectEditorScreen() {
                       style={[styles.input, styles.trimInput, { color: colors.text, borderColor: colors.border }]}
                       value={settings.trimming[side] ? String(settings.trimming[side]) : ''}
                       onChangeText={(t) =>
-                        setSettings({
-                          ...settings,
-                          trimming: { ...settings.trimming, [side]: parseFraction(t) },
-                        })
+                        setSettings({ ...settings, trimming: { ...settings.trimming, [side]: parseFraction(t) } })
                       }
                       placeholder="0"
                       placeholderTextColor={colors.secondaryText}
@@ -385,7 +456,14 @@ export default function ProjectEditorScreen() {
 
         {/* Cut Pieces */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Cut Pieces</Text>
+          <View style={[styles.pieceTopRow, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Cut Pieces</Text>
+            <TouchableOpacity onPress={toggleAllPieces} style={[styles.smallBtn, { borderColor: colors.secondaryText }]}>
+              <Text style={{ color: colors.secondaryText, fontSize: 11, fontWeight: '600' }}>
+                {cutPieces.every((p) => p.enabled !== false) ? 'Disable All' : 'Enable All'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <Text style={[styles.hint, { color: colors.secondaryText }]}>
             Supports fractions: type "23 1/2" or "23.5"
           </Text>
@@ -482,6 +560,31 @@ export default function ProjectEditorScreen() {
                   Can rotate (no grain direction)
                 </Text>
               </TouchableOpacity>
+
+              {/* Edge banding per side */}
+              {showEdgeBanding && (
+                <View style={[styles.edgeBandingRow, { backgroundColor: colors.card }]}>
+                  {(['top', 'bottom', 'left', 'right'] as const).map((side) => {
+                    const eb = piece.edgeBanding || { top: false, bottom: false, left: false, right: false };
+                    return (
+                      <TouchableOpacity
+                        key={side}
+                        style={[
+                          styles.edgeBandBtn,
+                          { borderColor: eb[side] ? colors.tint : colors.border },
+                          eb[side] && { backgroundColor: colors.tint + '20' },
+                        ]}
+                        onPress={() => updateEdgeBanding(i, side, !eb[side])}
+                      >
+                        <Text style={{ color: eb[side] ? colors.tint : colors.secondaryText, fontSize: 10, fontWeight: '600' }}>
+                          {side.charAt(0).toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <Text style={{ color: colors.secondaryText, fontSize: 10, marginLeft: 4 }}>Edge banding</Text>
+                </View>
+              )}
             </View>
           ))}
 
@@ -509,6 +612,29 @@ export default function ProjectEditorScreen() {
         <View style={{ height: 40, backgroundColor: 'transparent' }} />
       </ScrollView>
     </>
+  );
+}
+
+function ToggleSwitch({ label, value, onToggle, colors }: {
+  label: string; value: boolean; onToggle: (v: boolean) => void; colors: any;
+}) {
+  return (
+    <TouchableOpacity
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}
+      onPress={() => onToggle(!value)}
+    >
+      <View style={{
+        width: 36, height: 20, borderRadius: 10, justifyContent: 'center',
+        backgroundColor: value ? colors.tint : colors.border,
+        paddingHorizontal: 2,
+      }}>
+        <View style={{
+          width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff',
+          alignSelf: value ? 'flex-end' : 'flex-start',
+        }} />
+      </View>
+      <Text style={{ color: colors.secondaryText, fontSize: 13 }}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -572,6 +698,11 @@ const styles = StyleSheet.create({
   },
   trimItem: { flexDirection: 'row', alignItems: 'center', gap: 4, width: '45%' },
   trimLabel: { fontSize: 12, fontWeight: '600', width: 50 },
+  edgeBandingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  edgeBandBtn: {
+    width: 24, height: 24, borderRadius: 4, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
   calculateBtn: { borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 8 },
   calculateBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
 });

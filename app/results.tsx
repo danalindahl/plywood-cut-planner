@@ -360,9 +360,33 @@ export default function ResultsScreen() {
         return (
         <View key={i} style={[styles.sheetSection, { backgroundColor: colors.card }]}>
           <View style={[styles.sheetHeader, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sheetTitle, { color: colors.text }]}>
-              Sheet {i + 1} of {result.totalSheets}
-            </Text>
+            <View style={[styles.sheetTitleRow, { backgroundColor: colors.card }]}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>
+                Sheet {i + 1} of {result.totalSheets}
+              </Text>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={[styles.imgExportBtn, { borderColor: colors.border }]}
+                  onPress={() => {
+                    // Find the SVG element and export as image
+                    const svgs = document.querySelectorAll('svg');
+                    // Each sheet diagram SVG — offset by index in the DOM
+                    const svgEl = svgs[showAllSheets ? displayIdx : 0];
+                    if (!svgEl) return;
+                    const svgData = new XMLSerializer().serializeToString(svgEl);
+                    const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sheet-${i + 1}.svg`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Text style={{ color: colors.secondaryText, fontSize: 11 }}>Save SVG</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <Text style={[styles.sheetStats, { color: colors.secondaryText }]}>
               {sheetLayout.stockSheet.width}×{sheetLayout.stockSheet.height} •{' '}
               {sheetLayout.placements.length} pieces •{' '}
@@ -372,7 +396,7 @@ export default function ResultsScreen() {
             </Text>
           </View>
 
-          <CuttingDiagram layout={sheetLayout} sheetIndex={i} zoom={diagramZoom} />
+          <CuttingDiagram layout={sheetLayout} sheetIndex={i} zoom={diagramZoom} showLabels={settings.showLabelsOnDiagram !== false} />
 
           <View style={[styles.cutList, { backgroundColor: colors.card }]}>
             <Text style={[styles.cutListTitle, { color: colors.secondaryText }]}>Cut List</Text>
@@ -517,7 +541,9 @@ const styles = StyleSheet.create({
   warningText: { fontWeight: '700', marginBottom: 4 },
   sheetSection: { borderRadius: 12, padding: 16, marginBottom: 16 },
   sheetHeader: { marginBottom: 8 },
+  sheetTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sheetTitle: { fontSize: 16, fontWeight: '700' },
+  imgExportBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   sheetStats: { fontSize: 13, marginTop: 2 },
   cutList: { marginTop: 12 },
   cutListTitle: { fontSize: 13, fontWeight: '600', marginBottom: 6 },

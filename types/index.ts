@@ -4,6 +4,10 @@ export type UnitSystem = 'imperial' | 'metric';
 
 export type OptimizationMode = 'less_waste' | 'fewer_cuts';
 
+export type DimensionOrder = 'LxW' | 'WxL';
+
+export type FirstCutDirection = 'auto' | 'horizontal' | 'vertical';
+
 export interface TrimSettings {
   top: number;
   bottom: number;
@@ -12,10 +16,19 @@ export interface TrimSettings {
 }
 
 export interface Settings {
-  kerfWidth: number; // blade thickness in current units (e.g., 0.125" for 1/8")
+  kerfWidth: number;
   units: UnitSystem;
   optimizationMode: OptimizationMode;
-  trimming: TrimSettings; // factory edge trim per side
+  trimming: TrimSettings;
+  showLabelsOnDiagram: boolean;
+  useOneSheetType: boolean; // force single stock sheet type
+  considerMaterial: boolean; // match pieces to stock by material
+  considerGrain: boolean; // global grain direction toggle
+  firstCutDirection: FirstCutDirection;
+  dimensionOrder: DimensionOrder;
+  decimalPlaces: number;
+  minOffcutDimension: number; // smallest usable offcut (inches or mm)
+  stackIdenticalLayouts: boolean; // show identical layouts once with "×N"
 }
 
 // ---- Stock Sheets ----

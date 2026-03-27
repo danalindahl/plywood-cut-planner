@@ -218,8 +218,8 @@ function packSingleSheet(
 
     const piece = pieces[i];
 
-    // Material matching: skip if piece has a material that doesn't match
-    if (piece.material && piece.material !== sheet.material) continue;
+    // Material matching: skip if piece has a material that doesn't match (only when enabled)
+    if (settings.considerMaterial && piece.material && piece.material !== sheet.material) continue;
 
     const best = findBestRect(piece, freeRects, kerf);
     if (!best) continue;
@@ -374,16 +374,16 @@ function r(n: number): string {
 /**
  * Convert remaining free rectangles into offcuts.
  */
-function computeOffcuts(freeRects: FreeRect[]): Offcut[] {
+function computeOffcuts(freeRects: FreeRect[], minDim: number = MIN_USABLE_OFFCUT): Offcut[] {
   return freeRects
-    .filter((r) => r.width > 0.5 && r.height > 0.5) // ignore slivers
+    .filter((r) => r.width > 0.5 && r.height > 0.5)
     .map((r) => ({
       x: r.x,
       y: r.y,
       width: Math.round(r.width * 100) / 100,
       height: Math.round(r.height * 100) / 100,
       area: Math.round(r.width * r.height * 100) / 100,
-      usable: r.width >= MIN_USABLE_OFFCUT && r.height >= MIN_USABLE_OFFCUT,
+      usable: r.width >= minDim && r.height >= minDim,
     }))
     .sort((a, b) => b.area - a.area);
 }
@@ -395,11 +395,12 @@ function buildSheetLayout(
   sheet: StockSheet,
   placements: Placement[],
   freeRects: FreeRect[],
-  kerf: number
+  kerf: number,
+  minOffcutDim: number = MIN_USABLE_OFFCUT
 ): SheetLayout {
   const usedArea = placements.reduce((sum, p) => sum + p.width * p.height, 0);
   const totalArea = sheet.width * sheet.height;
-  const offcuts = computeOffcuts(freeRects);
+  const offcuts = computeOffcuts(freeRects, minOffcutDim);
   const { instructions, totalCuts, totalCutLength } = generateCutInstructions(
     placements, sheet.width, sheet.height, kerf
   );
@@ -453,7 +454,7 @@ function packWithSort(
       continue;
     }
 
-    sheets.push(buildSheetLayout(sheet, placements, freeRects, settings.kerfWidth));
+    sheets.push(buildSheetLayout(sheet, placements, freeRects, settings.kerfWidth, settings.minOffcutDimension || MIN_USABLE_OFFCUT));
     remaining = remaining.filter((_, i) => !placedIndices.has(i));
     sheetIndex++;
   }
@@ -480,7 +481,7 @@ function packWithSort(
 
     if (placements.length === 0) break;
 
-    sheets.push(buildSheetLayout(bestStock, placements, freeRects, settings.kerfWidth));
+    sheets.push(buildSheetLayout(bestStock, placements, freeRects, settings.kerfWidth, settings.minOffcutDimension || MIN_USABLE_OFFCUT));
     remaining = remaining.filter((_, i) => !placedIndices.has(i));
   }
 
@@ -555,12 +556,20 @@ export function packPieces(
   stockSheets: StockSheet[],
   settings: Settings
 ): PackingResult {
-  // Filter to only enabled pieces
-  const enabledPieces = cutPieces.filter((p) => p.enabled !== false);
+  // Filter to only enabled pieces, apply global grain setting
+  const enabledPieces = cutPieces
+    .filter((p) => p.enabled !== false)
+    .map((p) => settings.considerGrain ? p : { ...p, canRotate: true });
+
+  // If useOneSheetType, only use the first stock sheet type
+  const activeSheets = settings.useOneSheetType && stockSheets.length > 0
+    ? [stockSheets[0]]
+    : stockSheets;
+
   let bestResult: PackingResult | null = null;
 
   for (const sortFn of SORT_STRATEGIES) {
-    const result = packWithSort(enabledPieces, stockSheets, settings, sortFn);
+    const result = packWithSort(enabledPieces, activeSheets, settings, sortFn);
 
     if (!bestResult) {
       bestResult = result;

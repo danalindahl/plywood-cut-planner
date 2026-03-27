@@ -10,6 +10,15 @@ export const DEFAULT_SETTINGS: Settings = {
   units: 'imperial',
   optimizationMode: 'less_waste',
   trimming: { top: 0, bottom: 0, left: 0, right: 0 },
+  showLabelsOnDiagram: true,
+  useOneSheetType: false,
+  considerMaterial: false,
+  considerGrain: false,
+  firstCutDirection: 'auto',
+  dimensionOrder: 'WxL',
+  decimalPlaces: 2,
+  minOffcutDimension: 6,
+  stackIdenticalLayouts: false,
 };
 
 export const DEFAULT_STOCK_SHEET: StockSheet = {
@@ -48,5 +57,4 @@ export function createNewProject(): Project {
   };
 }
 
-// Minimum offcut dimensions to be considered "usable" (in inches)
 export const MIN_USABLE_OFFCUT = 6;
