@@ -69,12 +69,13 @@ export default function ResultsScreen() {
       }));
     } else if (suggestion.type === 'trim_some' && suggestion.pieceIds && suggestion.trimAmount) {
       const ids = new Set(suggestion.pieceIds);
+      const dim = suggestion.dimension; // undefined means both
       updated = pieces.map((p) => {
         if (!ids.has(p.id)) return p;
         return {
           ...p,
-          width: Math.max(1, p.width - suggestion.trimAmount!),
-          height: Math.max(1, p.height - suggestion.trimAmount!),
+          width: (!dim || dim === 'width') ? Math.max(1, p.width - suggestion.trimAmount!) : p.width,
+          height: (!dim || dim === 'height') ? Math.max(1, p.height - suggestion.trimAmount!) : p.height,
         };
       });
     } else if (suggestion.type === 'trim_piece' && suggestion.pieceId && suggestion.dimension) {

@@ -61,35 +61,37 @@ export function generateSuggestions(
   if (currentResult.sheets.length > 1) {
     const lastSheet = currentResult.sheets[currentResult.sheets.length - 1];
     const lastSheetPieceIds = new Set(lastSheet.placements.map((p) => p.pieceId));
+    const pieceNames = cutPieces
+      .filter((p) => lastSheetPieceIds.has(p.id))
+      .map((p) => `"${p.label || 'Unnamed'}"`)
+      .join(' and ');
 
-    // Try trimming only the piece types that appear on the last sheet
-    for (const trim of trimAmounts) {
-      const modifiedPieces = cutPieces.map((p) => {
-        if (!lastSheetPieceIds.has(p.id)) return p;
-        return {
-          ...p,
-          width: Math.max(1, p.width - trim),
-          height: Math.max(1, p.height - trim),
-        };
-      });
+    // Try each dimension separately first, then both
+    for (const dimOption of ['width', 'height', 'both'] as const) {
+      for (const trim of trimAmounts) {
+        const modifiedPieces = cutPieces.map((p) => {
+          if (!lastSheetPieceIds.has(p.id)) return p;
+          if (dimOption === 'width') return { ...p, width: Math.max(1, p.width - trim) };
+          if (dimOption === 'height') return { ...p, height: Math.max(1, p.height - trim) };
+          return { ...p, width: Math.max(1, p.width - trim), height: Math.max(1, p.height - trim) };
+        });
 
-      const newResult = packPieces(modifiedPieces, stockSheets, settings);
-      const saved = currentSheets - newResult.totalSheets;
+        const newResult = packPieces(modifiedPieces, stockSheets, settings);
+        const saved = currentSheets - newResult.totalSheets;
 
-      if (saved > 0 && newResult.unplacedPieces.length === 0) {
-        const pieceNames = cutPieces
-          .filter((p) => lastSheetPieceIds.has(p.id))
-          .map((p) => `"${p.label || 'Unnamed'}"`)
-          .join(' and ');
-        const msg = `Trim ${formatTrim(trim)}" off ${pieceNames} — saves ${saved} sheet${saved > 1 ? 's' : ''}`;
-        if (!seen.has(msg)) {
-          seen.add(msg);
-          suggestions.push({
-            type: 'trim_some', message: msg, sheetsSaved: saved,
-            trimAmount: trim, pieceIds: [...lastSheetPieceIds],
-          });
+        if (saved > 0 && newResult.unplacedPieces.length === 0) {
+          const dimLabel = dimOption === 'both' ? 'width and height' : dimOption;
+          const msg = `Trim ${formatTrim(trim)}" off ${pieceNames} ${dimLabel} — saves ${saved} sheet${saved > 1 ? 's' : ''}`;
+          if (!seen.has(msg)) {
+            seen.add(msg);
+            suggestions.push({
+              type: 'trim_some', message: msg, sheetsSaved: saved,
+              trimAmount: trim, pieceIds: [...lastSheetPieceIds],
+              dimension: dimOption === 'both' ? undefined : dimOption,
+            });
+          }
+          break;
         }
-        break;
       }
     }
   }
