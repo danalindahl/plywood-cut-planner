@@ -139,32 +139,26 @@ export default function ProjectListScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Plywood Cut Planner</Text>
-
-      {/* User bar */}
-      <View style={[styles.userBar, { backgroundColor: colors.card }]}>
+      {/* Nav bar */}
+      <View style={[styles.navBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <Text style={[styles.navTitle, { color: colors.tint }]}>Plywood Cut Planner</Text>
         {user ? (
-          <>
-            <Text style={[styles.userEmail, { color: colors.secondaryText }]} numberOfLines={1}>
+          <View style={[styles.navRight, { backgroundColor: colors.card }]}>
+            <Text style={[styles.navEmail, { color: colors.secondaryText }]} numberOfLines={1}>
               {user.email}
             </Text>
-            {migrating && <Text style={{ color: colors.tint, fontSize: 12 }}>Syncing...</Text>}
-            <TouchableOpacity onPress={signOut} style={[styles.authBtn, { borderColor: colors.border }]}>
+            {migrating && <Text style={{ color: colors.tint, fontSize: 11 }}>Syncing...</Text>}
+            <TouchableOpacity onPress={signOut} style={[styles.navBtn, { borderColor: colors.border }]}>
               <Text style={{ color: colors.secondaryText, fontSize: 13, fontWeight: '600' }}>Sign Out</Text>
             </TouchableOpacity>
-          </>
+          </View>
         ) : (
-          <>
-            <Text style={[styles.userEmail, { color: colors.secondaryText }]}>
-              Not signed in — projects saved locally only
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/auth')}
-              style={[styles.authBtn, { backgroundColor: colors.tint }]}
-            >
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Sign In</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            onPress={() => router.push('/auth')}
+            style={[styles.navSignIn, { backgroundColor: colors.tint }]}
+          >
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Sign In</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -350,32 +344,36 @@ export default function ProjectListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  userBar: {
+  navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 8,
+    paddingVertical: 12,
+    paddingTop: 48, // safe area for mobile
+    borderBottomWidth: 1,
+  },
+  navTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  navRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  userEmail: {
-    flex: 1,
-    fontSize: 13,
+  navEmail: {
+    fontSize: 12,
+    maxWidth: 160,
   },
-  authBtn: {
-    borderRadius: 8,
+  navBtn: {
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'transparent',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  navSignIn: {
+    borderRadius: 6,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
