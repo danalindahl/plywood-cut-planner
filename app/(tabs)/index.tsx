@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
   SectionList,
   TouchableOpacity,
+  TextInput,
   Alert,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 
@@ -23,7 +25,10 @@ export default function ProjectListScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const router = useRouter();
-  const { projects, loading, refresh, create, remove } = useProjectList();
+  const { projects, loading, refresh, create, remove, rename } = useProjectList();
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState('');
 
   useFocusEffect(
     React.useCallback(() => {
@@ -31,7 +36,6 @@ export default function ProjectListScreen() {
     }, [refresh])
   );
 
-  // Group projects by folder
   const sections = useMemo((): Section[] => {
     const folderMap = new Map<string, ProjectListItem[]>();
     for (const p of projects) {
@@ -41,7 +45,6 @@ export default function ProjectListScreen() {
     }
 
     const result: Section[] = [];
-    // Named folders first (alphabetical), then unfiled
     const folders = [...folderMap.keys()].sort((a, b) => {
       if (a === '' && b !== '') return 1;
       if (b === '' && a !== '') return -1;
@@ -59,7 +62,6 @@ export default function ProjectListScreen() {
 
   async function handleCreate(folder?: string) {
     const project = await create();
-    // If creating within a folder, we'll set the folder in the editor
     if (folder && folder !== 'Unfiled') {
       (global as any).__newProjectFolder = folder;
     }
@@ -67,16 +69,31 @@ export default function ProjectListScreen() {
   }
 
   function handleDelete(id: string, name: string) {
+    setMenuOpenId(null);
     if (Platform.OS === 'web') {
-      if (confirm(`Delete "${name}"?`)) {
+      if (confirm(`Delete "${name}"? This cannot be undone.`)) {
         remove(id);
       }
     } else {
-      Alert.alert('Delete Project', `Delete "${name}"?`, [
+      Alert.alert('Delete Project', `Delete "${name}"? This cannot be undone.`, [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: () => remove(id) },
       ]);
     }
+  }
+
+  function handleStartRename(id: string, currentName: string) {
+    setMenuOpenId(null);
+    setRenameId(id);
+    setRenameText(currentName);
+  }
+
+  async function handleFinishRename() {
+    if (renameId && renameText.trim()) {
+      await rename(renameId, renameText.trim());
+    }
+    setRenameId(null);
+    setRenameText('');
   }
 
   function formatDate(iso: string): string {
@@ -146,14 +163,81 @@ export default function ProjectListScreen() {
                 <Text style={[styles.arrow, { color: colors.secondaryText }]}>›</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.deleteBtn, { borderLeftColor: colors.border }]}
-                onPress={() => handleDelete(item.id, item.name)}
+                style={[styles.menuBtn, { borderLeftColor: colors.border }]}
+                onPress={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)}
               >
-                <Text style={[styles.deleteText, { color: colors.danger }]}>✕</Text>
+                <Text style={[styles.menuDots, { color: colors.secondaryText }]}>⋯</Text>
               </TouchableOpacity>
+
+              {/* Dropdown menu */}
+              {menuOpenId === item.id && (
+                <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => handleStartRename(item.id, item.name)}
+                  >
+                    <Text style={[styles.dropdownText, { color: colors.text }]}>Rename</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setMenuOpenId(null);
+                      router.push(`/project/${item.id}`);
+                    }}
+                  >
+                    <Text style={[styles.dropdownText, { color: colors.text }]}>Edit</Text>
+                  </TouchableOpacity>
+                  <View style={[styles.dropdownDivider, { backgroundColor: colors.border }]} />
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => handleDelete(item.id, item.name)}
+                  >
+                    <Text style={[styles.dropdownText, { color: colors.danger }]}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         />
+      )}
+
+      {/* Rename modal */}
+      {renameId && (
+        <Modal transparent animationType="fade" visible>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setRenameId(null)}
+          >
+            <View style={[styles.renameModal, { backgroundColor: colors.card }]}>
+              <Text style={[styles.renameTitle, { color: colors.text }]}>Rename Project</Text>
+              <TextInput
+                style={[styles.renameInput, { color: colors.text, borderColor: colors.border }]}
+                value={renameText}
+                onChangeText={setRenameText}
+                autoFocus
+                selectTextOnFocus
+                onSubmitEditing={handleFinishRename}
+                placeholder="Project name"
+                placeholderTextColor={colors.secondaryText}
+              />
+              <View style={[styles.renameButtons, { backgroundColor: colors.card }]}>
+                <TouchableOpacity
+                  style={[styles.renameBtn, { borderColor: colors.border }]}
+                  onPress={() => setRenameId(null)}
+                >
+                  <Text style={{ color: colors.secondaryText, fontSize: 15, fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.renameBtn, { backgroundColor: colors.tint }]}
+                  onPress={handleFinishRename}
+                >
+                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       )}
 
       <TouchableOpacity
@@ -203,7 +287,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     marginBottom: 10,
-    overflow: 'hidden',
+    overflow: 'visible',
+    position: 'relative',
   },
   projectMain: {
     flex: 1,
@@ -227,15 +312,42 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     marginLeft: 8,
   },
-  deleteBtn: {
+  menuBtn: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderLeftWidth: 1,
   },
-  deleteText: {
-    fontSize: 16,
+  menuDots: {
+    fontSize: 18,
     fontWeight: '700',
+    letterSpacing: 2,
+  },
+  dropdown: {
+    position: 'absolute',
+    right: 0,
+    top: '100%',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 4,
+    minWidth: 140,
+    zIndex: 100,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  dropdownText: {
+    fontSize: 15,
+  },
+  dropdownDivider: {
+    height: 1,
+    marginHorizontal: 12,
   },
   emptyState: {
     flex: 1,
@@ -274,5 +386,43 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  renameModal: {
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  renameTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  renameInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  renameButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  renameBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
 });

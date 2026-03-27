@@ -44,7 +44,18 @@ export function useProjectList() {
     [refresh]
   );
 
-  return { projects, loading, refresh, create, remove };
+  const rename = useCallback(
+    async (id: string, newName: string) => {
+      const project = await loadProject(id);
+      if (project) {
+        await saveProject({ ...project, name: newName, updatedAt: new Date().toISOString() });
+        await refresh();
+      }
+    },
+    [refresh]
+  );
+
+  return { projects, loading, refresh, create, remove, rename };
 }
 
 export function useProject(id: string | null) {
