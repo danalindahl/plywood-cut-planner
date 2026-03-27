@@ -308,6 +308,16 @@ export default function ProjectEditorScreen() {
                     placeholderTextColor={colors.secondaryText}
                   />
                 </View>
+                <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
+                  <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Material</Text>
+                  <TextInput
+                    style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+                    value={sheet.material !== 'default' ? sheet.material : ''}
+                    onChangeText={(t) => updateSheet(i, 'material', t || 'default')}
+                    placeholder="e.g. 3/4 Birch"
+                    placeholderTextColor={colors.secondaryText}
+                  />
+                </View>
               </View>
             </View>
           ))}
@@ -561,6 +571,36 @@ export default function ProjectEditorScreen() {
                 </Text>
               </TouchableOpacity>
 
+              {/* Material selector */}
+              {settings.considerMaterial && (
+                <View style={[styles.materialRow, { backgroundColor: colors.card }]}>
+                  <Text style={{ color: colors.secondaryText, fontSize: 11, marginRight: 6 }}>Material:</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.materialChip,
+                      { borderColor: !piece.material ? colors.tint : colors.border },
+                      !piece.material && { backgroundColor: colors.tint + '20' },
+                    ]}
+                    onPress={() => updatePiece(i, 'material', '')}
+                  >
+                    <Text style={{ color: !piece.material ? colors.tint : colors.secondaryText, fontSize: 11 }}>Any</Text>
+                  </TouchableOpacity>
+                  {[...new Set(stockSheets.map((s) => s.material).filter((m) => m && m !== 'default'))].map((mat) => (
+                    <TouchableOpacity
+                      key={mat}
+                      style={[
+                        styles.materialChip,
+                        { borderColor: piece.material === mat ? colors.tint : colors.border },
+                        piece.material === mat && { backgroundColor: colors.tint + '20' },
+                      ]}
+                      onPress={() => updatePiece(i, 'material', mat)}
+                    >
+                      <Text style={{ color: piece.material === mat ? colors.tint : colors.secondaryText, fontSize: 11 }}>{mat}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
               {/* Edge banding per side */}
               {showEdgeBanding && (
                 <View style={[styles.edgeBandingRow, { backgroundColor: colors.card }]}>
@@ -698,6 +738,10 @@ const styles = StyleSheet.create({
   },
   trimItem: { flexDirection: 'row', alignItems: 'center', gap: 4, width: '45%' },
   trimLabel: { fontSize: 12, fontWeight: '600', width: 50 },
+  materialRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  materialChip: {
+    borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4,
+  },
   edgeBandingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   edgeBandBtn: {
     width: 24, height: 24, borderRadius: 4, borderWidth: 1.5,
