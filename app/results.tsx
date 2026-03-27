@@ -26,6 +26,9 @@ export default function ResultsScreen() {
   const colors = Colors[colorScheme];
   const [exporting, setExporting] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  const [activeSheet, setActiveSheet] = useState(0); // for per-sheet navigation
+  const [showAllSheets, setShowAllSheets] = useState(true);
+  const [diagramZoom, setDiagramZoom] = useState(1.0);
 
   const initialResult: PackingResult | undefined = (global as any).__packingResult;
   const inputData: { pieces: CutPiece[]; sheets: StockSheet[]; settings: Settings } | undefined =
@@ -307,8 +310,54 @@ export default function ResultsScreen() {
         </View>
       )}
 
+      {/* Sheet Navigation & Toolbar */}
+      {result.sheets.length > 1 && (
+        <View style={[styles.sheetNav, { backgroundColor: colors.card }]}>
+          <TouchableOpacity
+            style={[styles.navBtn, { borderColor: colors.border }]}
+            onPress={() => setShowAllSheets(!showAllSheets)}
+          >
+            <Text style={{ color: colors.tint, fontSize: 12, fontWeight: '600' }}>
+              {showAllSheets ? 'Show One at a Time' : 'Show All Sheets'}
+            </Text>
+          </TouchableOpacity>
+          {!showAllSheets && (
+            <View style={[styles.navArrows, { backgroundColor: colors.card }]}>
+              <TouchableOpacity
+                onPress={() => setActiveSheet(Math.max(0, activeSheet - 1))}
+                disabled={activeSheet === 0}
+                style={[styles.arrowBtn, { opacity: activeSheet === 0 ? 0.3 : 1 }]}
+              >
+                <Text style={{ color: colors.tint, fontSize: 20, fontWeight: '700' }}>‹</Text>
+              </TouchableOpacity>
+              <Text style={[styles.navLabel, { color: colors.text }]}>
+                Sheet {activeSheet + 1} of {result.totalSheets}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setActiveSheet(Math.min(result.totalSheets - 1, activeSheet + 1))}
+                disabled={activeSheet >= result.totalSheets - 1}
+                style={[styles.arrowBtn, { opacity: activeSheet >= result.totalSheets - 1 ? 0.3 : 1 }]}
+              >
+                <Text style={{ color: colors.tint, fontSize: 20, fontWeight: '700' }}>›</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={[styles.zoomControls, { backgroundColor: colors.card }]}>
+            <TouchableOpacity onPress={() => setDiagramZoom(Math.max(0.5, diagramZoom - 0.25))} style={styles.zoomBtn}>
+              <Text style={{ color: colors.secondaryText, fontSize: 16, fontWeight: '700' }}>−</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.secondaryText, fontSize: 11 }}>{Math.round(diagramZoom * 100)}%</Text>
+            <TouchableOpacity onPress={() => setDiagramZoom(Math.min(2.0, diagramZoom + 0.25))} style={styles.zoomBtn}>
+              <Text style={{ color: colors.secondaryText, fontSize: 16, fontWeight: '700' }}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Sheet Diagrams */}
-      {result.sheets.map((sheetLayout, i) => (
+      {(showAllSheets ? result.sheets : [result.sheets[activeSheet]]).filter(Boolean).map((sheetLayout, displayIdx) => {
+        const i = showAllSheets ? displayIdx : activeSheet;
+        return (
         <View key={i} style={[styles.sheetSection, { backgroundColor: colors.card }]}>
           <View style={[styles.sheetHeader, { backgroundColor: colors.card }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>
@@ -323,7 +372,7 @@ export default function ResultsScreen() {
             </Text>
           </View>
 
-          <CuttingDiagram layout={sheetLayout} sheetIndex={i} />
+          <CuttingDiagram layout={sheetLayout} sheetIndex={i} zoom={diagramZoom} />
 
           <View style={[styles.cutList, { backgroundColor: colors.card }]}>
             <Text style={[styles.cutListTitle, { color: colors.secondaryText }]}>Cut List</Text>
@@ -387,7 +436,8 @@ export default function ResultsScreen() {
             </View>
           )}
         </View>
-      ))}
+        );
+      })}
 
       <View style={{ height: 40, backgroundColor: 'transparent' }} />
     </ScrollView>
@@ -480,6 +530,16 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 16, fontWeight: '700' },
   totalValue: { fontSize: 18, fontWeight: '800' },
+  sheetNav: {
+    borderRadius: 12, padding: 12, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+  },
+  navBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  navArrows: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  arrowBtn: { padding: 4 },
+  navLabel: { fontSize: 14, fontWeight: '600' },
+  zoomControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  zoomBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center' },
   cutInstructionHeader: {
     flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 1, marginBottom: 2,
   },

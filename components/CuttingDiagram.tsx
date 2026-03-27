@@ -8,19 +8,20 @@ import { PIECE_COLORS } from '@/constants/Colors';
 interface CuttingDiagramProps {
   layout: SheetLayout;
   sheetIndex: number;
+  zoom?: number;
 }
 
-export default function CuttingDiagram({ layout, sheetIndex }: CuttingDiagramProps) {
+export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0 }: CuttingDiagramProps) {
   const { width: windowWidth } = useWindowDimensions();
   const padding = 32;
-  const maxWidth = windowWidth - padding * 2;
+  const maxWidth = (windowWidth - padding * 2) * zoom;
 
   const sheetW = layout.stockSheet.width;
   const sheetH = layout.stockSheet.height;
 
   // Extra space for edge dimension labels
   const labelMargin = 20;
-  const scale = Math.min((maxWidth - labelMargin) / sheetW, 500 / sheetH);
+  const scale = Math.min((maxWidth - labelMargin) / sheetW, (500 * zoom) / sheetH);
   const svgW = sheetW * scale;
   const svgH = sheetH * scale;
 

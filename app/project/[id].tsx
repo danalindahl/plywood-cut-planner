@@ -17,6 +17,7 @@ import { CutPiece, StockSheet, Settings, Project } from '@/types';
 import { generateId, DEFAULT_SETTINGS, DEFAULT_STOCK_SHEET } from '@/lib/defaults';
 import { packPieces } from '@/lib/packing/guillotinePacker';
 import { parseFraction } from '@/lib/fractions';
+import { exportPiecesToCsv, importPiecesFromCsv } from '@/lib/csv';
 import { useProject } from '@/hooks/useProjects';
 
 export default function ProjectEditorScreen() {
@@ -121,6 +122,44 @@ export default function ProjectEditorScreen() {
       label: p.width && p.height ? `${p.width}×${p.height}` : p.label,
     }));
     setCutPieces(updated);
+  }
+
+  function handleExportCsv() {
+    const csv = exportPiecesToCsv(cutPieces);
+    if (Platform.OS === 'web') {
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${name || 'cutlist'}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function handleImportCsv() {
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv,.tsv,.txt';
+      input.onchange = (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const text = ev.target?.result as string;
+          if (!text) return;
+          const imported = importPiecesFromCsv(text);
+          if (imported.length === 0) {
+            showAlert('Import Failed', 'No valid pieces found in CSV. Needs at least Width and Height columns.');
+            return;
+          }
+          setCutPieces([...cutPieces, ...imported]);
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
   }
 
   function updatePiece(index: number, field: keyof CutPiece, value: string | number | boolean) {
@@ -450,11 +489,14 @@ export default function ProjectEditorScreen() {
             <TouchableOpacity style={[styles.addBtn, { borderColor: colors.tint, flex: 1 }]} onPress={addPiece}>
               <Text style={{ color: colors.tint, fontSize: 14, fontWeight: '600' }}>+ Add Piece</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.addBtn, { borderColor: colors.secondaryText }]}
-              onPress={autoLabelPieces}
-            >
-              <Text style={{ color: colors.secondaryText, fontSize: 12, fontWeight: '600' }}>Auto-Label</Text>
+            <TouchableOpacity style={[styles.smallBtn, { borderColor: colors.secondaryText }]} onPress={autoLabelPieces}>
+              <Text style={{ color: colors.secondaryText, fontSize: 11, fontWeight: '600' }}>Auto-Label</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.smallBtn, { borderColor: colors.secondaryText }]} onPress={handleImportCsv}>
+              <Text style={{ color: colors.secondaryText, fontSize: 11, fontWeight: '600' }}>Import CSV</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.smallBtn, { borderColor: colors.secondaryText }]} onPress={handleExportCsv}>
+              <Text style={{ color: colors.secondaryText, fontSize: 11, fontWeight: '600' }}>Export CSV</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -505,7 +547,10 @@ const styles = StyleSheet.create({
   actionBtn: { padding: 4, marginLeft: 4 },
   enableBtn: { padding: 4, marginRight: 4 },
   enableDot: { width: 12, height: 12, borderRadius: 6 },
-  pieceActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  pieceActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  smallBtn: {
+    borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, alignItems: 'center',
+  },
   rotateToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   checkbox: {
     width: 22, height: 22, borderWidth: 2, borderRadius: 4, alignItems: 'center', justifyContent: 'center',
