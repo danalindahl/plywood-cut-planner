@@ -15,6 +15,8 @@ import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useProjectList, ProjectListItem } from '@/hooks/useProjects';
+import { useAuthContext } from '@/lib/AuthContext';
+import { migrateLocalToCloud } from '@/lib/storage/projectStore';
 
 interface Section {
   title: string;
@@ -25,17 +27,27 @@ export default function ProjectListScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const router = useRouter();
+  const { user, loading: authLoading, signOut } = useAuthContext();
   const { projects, loading, refresh, create, remove, rename } = useProjectList();
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [migrating, setMigrating] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
       refresh();
-    }, [refresh])
+      // Auto-migrate local projects to cloud on first sign-in
+      if (user && !migrating) {
+        setMigrating(true);
+        migrateLocalToCloud().then((count) => {
+          if (count > 0) refresh();
+          setMigrating(false);
+        }).catch(() => setMigrating(false));
+      }
+    }, [refresh, user])
   );
 
   const sections = useMemo((): Section[] => {
@@ -128,6 +140,33 @@ export default function ProjectListScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>Plywood Cut Planner</Text>
+
+      {/* User bar */}
+      <View style={[styles.userBar, { backgroundColor: colors.card }]}>
+        {user ? (
+          <>
+            <Text style={[styles.userEmail, { color: colors.secondaryText }]} numberOfLines={1}>
+              {user.email}
+            </Text>
+            {migrating && <Text style={{ color: colors.tint, fontSize: 12 }}>Syncing...</Text>}
+            <TouchableOpacity onPress={signOut} style={[styles.authBtn, { borderColor: colors.border }]}>
+              <Text style={{ color: colors.secondaryText, fontSize: 13, fontWeight: '600' }}>Sign Out</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={[styles.userEmail, { color: colors.secondaryText }]}>
+              Not signed in — projects saved locally only
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/auth')}
+              style={[styles.authBtn, { backgroundColor: colors.tint }]}
+            >
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Sign In</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
 
       {projects.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.background }]}>
@@ -317,6 +356,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  userBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  userEmail: {
+    flex: 1,
+    fontSize: 13,
+  },
+  authBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   list: {
     padding: 16,

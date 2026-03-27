@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { AuthProvider } from '@/lib/AuthContext';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -32,7 +33,11 @@ export default function RootLayout() {
 
   if (!loaded) return null;
 
-  return <RootLayoutNav />;
+  return (
+    <AuthProvider>
+      <RootLayoutNav />
+    </AuthProvider>
+  );
 }
 
 function RootLayoutNav() {
@@ -41,6 +46,7 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth" options={{ title: 'Sign In', headerShown: false }} />
         <Stack.Screen name="project/[id]" options={{ title: 'Edit Project' }} />
         <Stack.Screen name="results" options={{ title: 'Cutting Plan', presentation: 'modal' }} />
       </Stack>
