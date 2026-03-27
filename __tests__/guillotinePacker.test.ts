@@ -18,7 +18,7 @@ function piece(
   quantity = 1,
   canRotate = true
 ): CutPiece {
-  return { id, label, width, height, quantity, canRotate };
+  return { id, label, width, height, quantity, canRotate, enabled: true };
 }
 
 const defaultSettings: Settings = {

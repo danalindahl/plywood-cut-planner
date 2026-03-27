@@ -46,8 +46,22 @@ export interface CutPiece {
   height: number;
   quantity: number;
   canRotate: boolean; // false = grain direction matters
+  enabled: boolean; // toggle piece on/off without deleting
   edgeBanding?: EdgeBanding;
   material?: string; // must match a stock sheet material (optional — if blank, fits any)
+}
+
+// ---- Cut Instructions ----
+
+export interface CutInstruction {
+  step: number;
+  panelSize: string; // e.g., "96×48" — the piece being cut from
+  cutPosition: string; // e.g., "y=36" or "x=24"
+  cutDirection: 'horizontal' | 'vertical';
+  cutValue: number; // the coordinate of the cut
+  resultPiece: string | null; // e.g., "36×30" — a finished piece, or null if intermediate
+  resultPieceLabel: string | null;
+  surplus: string | null; // e.g., "surplus 30×24" — leftover from this cut
 }
 
 // ---- Packing Results ----
@@ -75,9 +89,13 @@ export interface SheetLayout {
   stockSheet: StockSheet;
   placements: Placement[];
   offcuts: Offcut[];
+  cutInstructions: CutInstruction[];
+  totalCuts: number;
+  totalCutLength: number;
   usedArea: number;
   wasteArea: number;
   wastePercent: number;
+  wastedPanelCount: number; // number of small unusable waste pieces
 }
 
 export interface ShoppingListItem {
@@ -92,6 +110,8 @@ export interface PackingResult {
   totalUsedArea: number;
   totalWasteArea: number;
   totalWastePercent: number;
+  totalCuts: number;
+  totalCutLength: number;
   unplacedPieces: CutPiece[];
   shoppingList: ShoppingListItem[];
   totalCost: number;

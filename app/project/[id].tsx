@@ -103,8 +103,24 @@ export default function ProjectEditorScreen() {
   function addPiece() {
     setCutPieces([
       ...cutPieces,
-      { id: generateId(), label: '', width: 0, height: 0, quantity: 1, canRotate: true },
+      { id: generateId(), label: '', width: 0, height: 0, quantity: 1, canRotate: true, enabled: true },
     ]);
+  }
+
+  function duplicatePiece(index: number) {
+    const original = cutPieces[index];
+    const copy = { ...original, id: generateId(), label: original.label ? `${original.label} (copy)` : '' };
+    const updated = [...cutPieces];
+    updated.splice(index + 1, 0, copy);
+    setCutPieces(updated);
+  }
+
+  function autoLabelPieces() {
+    const updated = cutPieces.map((p) => ({
+      ...p,
+      label: p.width && p.height ? `${p.width}×${p.height}` : p.label,
+    }));
+    setCutPieces(updated);
   }
 
   function updatePiece(index: number, field: keyof CutPiece, value: string | number | boolean) {
@@ -336,8 +352,26 @@ export default function ProjectEditorScreen() {
           </Text>
 
           {cutPieces.map((piece, i) => (
-            <View key={piece.id} style={[styles.pieceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View
+              key={piece.id}
+              style={[
+                styles.pieceCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                piece.enabled === false && { opacity: 0.45 },
+              ]}
+            >
               <View style={[styles.pieceTopRow, { backgroundColor: colors.card }]}>
+                <TouchableOpacity
+                  onPress={() => updatePiece(i, 'enabled', piece.enabled !== false ? false : true)}
+                  style={styles.enableBtn}
+                >
+                  <View
+                    style={[
+                      styles.enableDot,
+                      { backgroundColor: piece.enabled !== false ? colors.tint : colors.border },
+                    ]}
+                  />
+                </TouchableOpacity>
                 <TextInput
                   style={[styles.labelInput, { color: colors.text, borderColor: colors.border }]}
                   value={piece.label}
@@ -345,7 +379,10 @@ export default function ProjectEditorScreen() {
                   placeholder="Piece name"
                   placeholderTextColor={colors.secondaryText}
                 />
-                <TouchableOpacity onPress={() => removePiece(i)} style={styles.removeBtn}>
+                <TouchableOpacity onPress={() => duplicatePiece(i)} style={styles.actionBtn}>
+                  <Text style={{ color: colors.secondaryText, fontSize: 16 }}>⧉</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => removePiece(i)} style={styles.actionBtn}>
                   <Text style={{ color: colors.danger, fontSize: 18, fontWeight: 'bold' }}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -409,9 +446,17 @@ export default function ProjectEditorScreen() {
             </View>
           ))}
 
-          <TouchableOpacity style={[styles.addBtn, { borderColor: colors.tint }]} onPress={addPiece}>
-            <Text style={{ color: colors.tint, fontSize: 16, fontWeight: '600' }}>+ Add Piece</Text>
-          </TouchableOpacity>
+          <View style={[styles.pieceActions, { backgroundColor: colors.card }]}>
+            <TouchableOpacity style={[styles.addBtn, { borderColor: colors.tint, flex: 1 }]} onPress={addPiece}>
+              <Text style={{ color: colors.tint, fontSize: 14, fontWeight: '600' }}>+ Add Piece</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.addBtn, { borderColor: colors.secondaryText }]}
+              onPress={autoLabelPieces}
+            >
+              <Text style={{ color: colors.secondaryText, fontSize: 12, fontWeight: '600' }}>Auto-Label</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Calculate */}
@@ -457,6 +502,10 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 16, marginRight: 8,
   },
   removeBtn: { padding: 4 },
+  actionBtn: { padding: 4, marginLeft: 4 },
+  enableBtn: { padding: 4, marginRight: 4 },
+  enableDot: { width: 12, height: 12, borderRadius: 6 },
+  pieceActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   rotateToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   checkbox: {
     width: 22, height: 22, borderWidth: 2, borderRadius: 4, alignItems: 'center', justifyContent: 'center',

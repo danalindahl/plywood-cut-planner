@@ -1,0 +1,5 @@
+[  202626ms] [ERROR] Failed to load resource: the server responded with a status of 402 () @ https://www.cutlistoptimizer.com/tasks:0
+[  202628ms] [WARNING] Request failed: 402
+url: https://www.cutlistoptimizer.com:443/tasks
+headers: {"Authorization":"Basic Y3V0bGlzdG9wdGltaXplcjpjdXRsaXN0b3B0aW1pemVy","Accept":"application/json, text/plain, */*","Content-Type":"application/json;charset=utf-8","X-Server-Select":"default"}
+    at https://www.cutlistoptimizer.com/js/app.min.js?v=1.12.1:1:7478 @ https://www.cutlistoptimizer.com/js/analytics-service.min.js?v=1.12.1:0

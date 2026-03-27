@@ -179,10 +179,12 @@ export default function ResultsScreen() {
             value={`${(100 - result.totalWastePercent).toFixed(1)}%`}
             colors={colors}
           />
+          <StatBox label="Cuts" value={String(result.totalCuts || 0)} colors={colors} />
         </View>
         <Text style={[styles.statsDetail, { color: colors.secondaryText }]}>
           {result.totalUsedArea.toFixed(0)} in² used of{' '}
           {(result.totalUsedArea + result.totalWasteArea).toFixed(0)} in² total
+          {result.totalCutLength ? ` · ${result.totalCutLength.toFixed(0)}" total cut length` : ''}
         </Text>
       </View>
 
@@ -315,7 +317,9 @@ export default function ResultsScreen() {
             <Text style={[styles.sheetStats, { color: colors.secondaryText }]}>
               {sheetLayout.stockSheet.width}×{sheetLayout.stockSheet.height} •{' '}
               {sheetLayout.placements.length} pieces •{' '}
-              {sheetLayout.wastePercent.toFixed(1)}% waste
+              {sheetLayout.wastePercent.toFixed(1)}% waste •{' '}
+              {sheetLayout.totalCuts} cuts
+              {sheetLayout.wastedPanelCount > 0 ? ` • ${sheetLayout.wastedPanelCount} waste pieces` : ''}
             </Text>
           </View>
 
@@ -337,6 +341,32 @@ export default function ResultsScreen() {
               </View>
             ))}
           </View>
+
+          {/* Step-by-step cut instructions */}
+          {sheetLayout.cutInstructions && sheetLayout.cutInstructions.length > 0 && (
+            <View style={[styles.cutList, { backgroundColor: colors.card }]}>
+              <Text style={[styles.cutListTitle, { color: colors.text, fontSize: 14, fontWeight: '700' }]}>
+                Cuts ({sheetLayout.totalCuts} cuts · {sheetLayout.totalCutLength.toFixed(0)}" total)
+              </Text>
+              <View style={[styles.cutInstructionHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                <Text style={[styles.cutInstCol1, { color: colors.secondaryText }]}>#</Text>
+                <Text style={[styles.cutInstCol2, { color: colors.secondaryText }]}>Panel</Text>
+                <Text style={[styles.cutInstCol3, { color: colors.secondaryText }]}>Cut</Text>
+                <Text style={[styles.cutInstCol4, { color: colors.secondaryText }]}>Result</Text>
+              </View>
+              {sheetLayout.cutInstructions.map((inst, j) => (
+                <View key={j} style={[styles.cutInstructionRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.cutInstCol1, { color: colors.secondaryText }]}>{inst.step}</Text>
+                  <Text style={[styles.cutInstCol2, { color: colors.text }]}>{inst.panelSize}</Text>
+                  <Text style={[styles.cutInstCol3, { color: colors.tint, fontWeight: '600' }]}>{inst.cutPosition}</Text>
+                  <Text style={[styles.cutInstCol4, { color: colors.text }]}>
+                    {inst.resultPiece || '—'}
+                    {inst.surplus ? ` · surplus ${inst.surplus}` : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {sheetLayout.offcuts.filter((o) => o.usable).length > 0 && (
             <View style={[styles.cutList, { backgroundColor: colors.card }]}>
@@ -450,4 +480,14 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 16, fontWeight: '700' },
   totalValue: { fontSize: 18, fontWeight: '800' },
+  cutInstructionHeader: {
+    flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 1, marginBottom: 2,
+  },
+  cutInstructionRow: {
+    flexDirection: 'row', paddingVertical: 3, borderBottomWidth: 0.5,
+  },
+  cutInstCol1: { width: 24, fontSize: 12, fontWeight: '600' },
+  cutInstCol2: { width: 60, fontSize: 12 },
+  cutInstCol3: { width: 50, fontSize: 12 },
+  cutInstCol4: { flex: 1, fontSize: 12 },
 });

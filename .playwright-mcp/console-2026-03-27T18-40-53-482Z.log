@@ -1,0 +1,6 @@
+[   42055ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://www.cutlistoptimizer.com/permit-periods?userId=dana813%40gmail.com:0
+[   42056ms] [WARNING] 404 not found: https://www.cutlistoptimizer.com:443/permit-periods?userId=dana813%40gmail.com
+    at https://www.cutlistoptimizer.com/js/app.min.js?v=1.12.1:1:7357 @ https://www.cutlistoptimizer.com/js/analytics-service.min.js?v=1.12.1:0
+[   42224ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://www.cutlistoptimizer.com/subscriptions?userId=dana813%40gmail.com:0
+[   42224ms] [WARNING] 404 not found: https://www.cutlistoptimizer.com:443/subscriptions?userId=dana813%40gmail.com
+    at https://www.cutlistoptimizer.com/js/app.min.js?v=1.12.1:1:7357 @ https://www.cutlistoptimizer.com/js/analytics-service.min.js?v=1.12.1:0

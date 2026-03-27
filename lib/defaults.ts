@@ -30,6 +30,7 @@ export function createDefaultPiece(): CutPiece {
     height: 0,
     quantity: 1,
     canRotate: true,
+    enabled: true,
   };
 }
 

@@ -7,6 +7,7 @@ import {
   Settings,
   Offcut,
   ShoppingListItem,
+  CutInstruction,
 } from '../../types';
 import { MIN_USABLE_OFFCUT } from '../defaults';
 
@@ -248,6 +249,129 @@ function packSingleSheet(
 }
 
 /**
+ * Generate step-by-step cut instructions from placements.
+ * Simulates the guillotine cutting process to produce ordered cuts.
+ */
+function generateCutInstructions(
+  placements: Placement[],
+  sheetW: number,
+  sheetH: number,
+  kerf: number
+): { instructions: CutInstruction[]; totalCuts: number; totalCutLength: number } {
+  const instructions: CutInstruction[] = [];
+  let step = 0;
+
+  // Build a set of placed piece rects for matching
+  const placedRects = placements.map((p) => ({
+    x: p.x, y: p.y, w: p.width, h: p.height,
+    label: p.pieceLabel, id: p.pieceId,
+  }));
+
+  // Recursive function: given a rectangle, determine what cuts to make
+  function processPiece(
+    rx: number, ry: number, rw: number, rh: number
+  ) {
+    if (rw < 0.5 || rh < 0.5) return;
+
+    // Check if this rect exactly matches a placed piece
+    const exact = placedRects.find(
+      (p) => Math.abs(p.x - rx) < 0.01 && Math.abs(p.y - ry) < 0.01 &&
+             Math.abs(p.w - rw) < 0.01 && Math.abs(p.h - rh) < 0.01
+    );
+    if (exact) return; // no cut needed, this IS a piece
+
+    // Find pieces that start at the top-left of this rect
+    const piecesHere = placedRects.filter(
+      (p) => p.x >= rx - 0.01 && p.y >= ry - 0.01 &&
+             p.x + p.w <= rx + rw + 0.01 && p.y + p.h <= ry + rh + 0.01
+    );
+
+    if (piecesHere.length === 0) return; // empty waste area
+
+    // Find the best guillotine cut that separates pieces
+    // Try horizontal cuts (y = constant)
+    const yCuts = new Set<number>();
+    const xCuts = new Set<number>();
+    for (const p of piecesHere) {
+      if (p.y + p.h + kerf < ry + rh - 0.01) yCuts.add(p.y + p.h);
+      if (p.x + p.w + kerf < rx + rw - 0.01) xCuts.add(p.x + p.w);
+    }
+
+    // Try the first valid horizontal cut
+    for (const yVal of yCuts) {
+      const topPieces = piecesHere.filter((p) => p.y + p.h <= yVal + 0.01);
+      const bottomPieces = piecesHere.filter((p) => p.y >= yVal + kerf - 0.01);
+      if (topPieces.length + bottomPieces.length === piecesHere.length && topPieces.length > 0 && bottomPieces.length >= 0) {
+        step++;
+        const topH = yVal - ry;
+        const bottomH = rh - topH - kerf;
+        const topMatch = topPieces.length === 1 && Math.abs(topPieces[0].w - rw) < 0.01 && Math.abs(topPieces[0].h - topH) < 0.01;
+        const bottomMatch = bottomPieces.length === 1 && Math.abs(bottomPieces[0].w - rw) < 0.01 && Math.abs(bottomPieces[0].h - bottomH) < 0.01;
+        const surplus = bottomPieces.length === 0 && bottomH > 0.5 ? `${r(rw)}×${r(bottomH)}` : null;
+
+        instructions.push({
+          step,
+          panelSize: `${r(rw)}×${r(rh)}`,
+          cutPosition: `y=${r(yVal - ry)}`,
+          cutDirection: 'horizontal',
+          cutValue: yVal,
+          resultPiece: topMatch ? `${r(topPieces[0].w)}×${r(topPieces[0].h)}` : null,
+          resultPieceLabel: topMatch ? topPieces[0].label : null,
+          surplus,
+        });
+
+        processPiece(rx, ry, rw, topH);
+        if (bottomH > 0.5) processPiece(rx, yVal + kerf, rw, bottomH);
+        return;
+      }
+    }
+
+    // Try the first valid vertical cut
+    for (const xVal of xCuts) {
+      const leftPieces = piecesHere.filter((p) => p.x + p.w <= xVal + 0.01);
+      const rightPieces = piecesHere.filter((p) => p.x >= xVal + kerf - 0.01);
+      if (leftPieces.length + rightPieces.length === piecesHere.length && leftPieces.length > 0 && rightPieces.length >= 0) {
+        step++;
+        const leftW = xVal - rx;
+        const rightW = rw - leftW - kerf;
+        const leftMatch = leftPieces.length === 1 && Math.abs(leftPieces[0].h - rh) < 0.01 && Math.abs(leftPieces[0].w - leftW) < 0.01;
+        const rightMatch = rightPieces.length === 1 && Math.abs(rightPieces[0].h - rh) < 0.01 && Math.abs(rightPieces[0].w - rightW) < 0.01;
+        const surplus = rightPieces.length === 0 && rightW > 0.5 ? `${r(rightW)}×${r(rh)}` : null;
+
+        instructions.push({
+          step,
+          panelSize: `${r(rw)}×${r(rh)}`,
+          cutPosition: `x=${r(xVal - rx)}`,
+          cutDirection: 'vertical',
+          cutValue: xVal,
+          resultPiece: leftMatch ? `${r(leftPieces[0].w)}×${r(leftPieces[0].h)}` : null,
+          resultPieceLabel: leftMatch ? leftPieces[0].label : null,
+          surplus,
+        });
+
+        processPiece(rx, ry, leftW, rh);
+        if (rightW > 0.5) processPiece(rx + leftW + kerf, ry, rightW, rh);
+        return;
+      }
+    }
+  }
+
+  processPiece(0, 0, sheetW, sheetH);
+
+  const totalCutLength = instructions.reduce((sum, inst) => {
+    return sum + (inst.cutDirection === 'horizontal'
+      ? parseFloat(inst.panelSize.split('×')[0])
+      : parseFloat(inst.panelSize.split('×')[1]));
+  }, 0);
+
+  return { instructions, totalCuts: instructions.length, totalCutLength };
+}
+
+function r(n: number): string {
+  return Math.round(n * 100) / 100 + '';
+}
+
+/**
  * Convert remaining free rectangles into offcuts.
  */
 function computeOffcuts(freeRects: FreeRect[]): Offcut[] {
@@ -262,6 +386,36 @@ function computeOffcuts(freeRects: FreeRect[]): Offcut[] {
       usable: r.width >= MIN_USABLE_OFFCUT && r.height >= MIN_USABLE_OFFCUT,
     }))
     .sort((a, b) => b.area - a.area);
+}
+
+/**
+ * Build a complete SheetLayout with all stats and cut instructions.
+ */
+function buildSheetLayout(
+  sheet: StockSheet,
+  placements: Placement[],
+  freeRects: FreeRect[],
+  kerf: number
+): SheetLayout {
+  const usedArea = placements.reduce((sum, p) => sum + p.width * p.height, 0);
+  const totalArea = sheet.width * sheet.height;
+  const offcuts = computeOffcuts(freeRects);
+  const { instructions, totalCuts, totalCutLength } = generateCutInstructions(
+    placements, sheet.width, sheet.height, kerf
+  );
+
+  return {
+    stockSheet: sheet,
+    placements,
+    offcuts,
+    cutInstructions: instructions,
+    totalCuts,
+    totalCutLength,
+    usedArea,
+    wasteArea: totalArea - usedArea,
+    wastePercent: ((totalArea - usedArea) / totalArea) * 100,
+    wastedPanelCount: offcuts.filter((o) => !o.usable).length,
+  };
 }
 
 /**
@@ -299,25 +453,13 @@ function packWithSort(
       continue;
     }
 
-    const usedArea = placements.reduce((sum, p) => sum + p.width * p.height, 0);
-    const totalArea = sheet.width * sheet.height;
-
-    sheets.push({
-      stockSheet: sheet,
-      placements,
-      offcuts: computeOffcuts(freeRects),
-      usedArea,
-      wasteArea: totalArea - usedArea,
-      wastePercent: ((totalArea - usedArea) / totalArea) * 100,
-    });
-
+    sheets.push(buildSheetLayout(sheet, placements, freeRects, settings.kerfWidth));
     remaining = remaining.filter((_, i) => !placedIndices.has(i));
     sheetIndex++;
   }
 
   // If we ran out of available sheets, add more of the best-matching stock type
   while (remaining.length > 0) {
-    // Find the stock sheet type that can fit the largest remaining piece
     const bestStock = stockSheets.find((ss) => {
       const usable = applyTrimming(ss, settings);
       return remaining.some(
@@ -338,18 +480,7 @@ function packWithSort(
 
     if (placements.length === 0) break;
 
-    const usedArea = placements.reduce((sum, p) => sum + p.width * p.height, 0);
-    const totalArea = bestStock.width * bestStock.height;
-
-    sheets.push({
-      stockSheet: bestStock,
-      placements,
-      offcuts: computeOffcuts(freeRects),
-      usedArea,
-      wasteArea: totalArea - usedArea,
-      wastePercent: ((totalArea - usedArea) / totalArea) * 100,
-    });
-
+    sheets.push(buildSheetLayout(bestStock, placements, freeRects, settings.kerfWidth));
     remaining = remaining.filter((_, i) => !placedIndices.has(i));
   }
 
@@ -407,6 +538,8 @@ function packWithSort(
       totalSheetArea > 0
         ? ((totalSheetArea - totalUsedArea) / totalSheetArea) * 100
         : 0,
+    totalCuts: sheets.reduce((sum, s) => sum + s.totalCuts, 0),
+    totalCutLength: sheets.reduce((sum, s) => sum + s.totalCutLength, 0),
     unplacedPieces,
     shoppingList,
     totalCost,
@@ -422,10 +555,12 @@ export function packPieces(
   stockSheets: StockSheet[],
   settings: Settings
 ): PackingResult {
+  // Filter to only enabled pieces
+  const enabledPieces = cutPieces.filter((p) => p.enabled !== false);
   let bestResult: PackingResult | null = null;
 
   for (const sortFn of SORT_STRATEGIES) {
-    const result = packWithSort(cutPieces, stockSheets, settings, sortFn);
+    const result = packWithSort(enabledPieces, stockSheets, settings, sortFn);
 
     if (!bestResult) {
       bestResult = result;
