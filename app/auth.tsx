@@ -13,6 +13,7 @@ import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuthContext } from '@/lib/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function AuthScreen() {
   const colorScheme = useColorScheme();
@@ -137,6 +138,34 @@ export default function AuthScreen() {
             )}
           </TouchableOpacity>
 
+          <View style={[styles.dividerRow, { backgroundColor: colors.card }]}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={{ color: colors.secondaryText, fontSize: 13, paddingHorizontal: 12 }}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.googleBtn, { borderColor: colors.border }]}
+            onPress={async () => {
+              setError('');
+              try {
+                const redirectTo = Platform.OS === 'web' && typeof window !== 'undefined'
+                  ? window.location.origin
+                  : 'https://plywoodcutplanner.com';
+                const { error } = await supabase.auth.signInWithOAuth({
+                  provider: 'google',
+                  options: { redirectTo },
+                });
+                if (error) throw error;
+              } catch (err: any) {
+                setError(err.message || 'Google sign in failed');
+              }
+            }}
+          >
+            <Text style={styles.googleG}>G</Text>
+            <Text style={[styles.googleText, { color: colors.text }]}>Continue with Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.switchBtn}
             onPress={() => {
@@ -217,6 +246,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    gap: 10,
+  },
+  googleG: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#4285F4',
+  },
+  googleText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   switchBtn: {
     alignItems: 'center',
