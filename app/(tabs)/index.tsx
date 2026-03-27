@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   StyleSheet,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   Alert,
   Platform,
@@ -12,7 +12,12 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { useProjectList } from '@/hooks/useProjects';
+import { useProjectList, ProjectListItem } from '@/hooks/useProjects';
+
+interface Section {
+  title: string;
+  data: ProjectListItem[];
+}
 
 export default function ProjectListScreen() {
   const colorScheme = useColorScheme();
@@ -20,15 +25,44 @@ export default function ProjectListScreen() {
   const router = useRouter();
   const { projects, loading, refresh, create, remove } = useProjectList();
 
-  // Refresh when screen comes into focus (e.g., after editing)
   useFocusEffect(
     React.useCallback(() => {
       refresh();
     }, [refresh])
   );
 
-  async function handleCreate() {
+  // Group projects by folder
+  const sections = useMemo((): Section[] => {
+    const folderMap = new Map<string, ProjectListItem[]>();
+    for (const p of projects) {
+      const folder = p.folder || '';
+      if (!folderMap.has(folder)) folderMap.set(folder, []);
+      folderMap.get(folder)!.push(p);
+    }
+
+    const result: Section[] = [];
+    // Named folders first (alphabetical), then unfiled
+    const folders = [...folderMap.keys()].sort((a, b) => {
+      if (a === '' && b !== '') return 1;
+      if (b === '' && a !== '') return -1;
+      return a.localeCompare(b);
+    });
+
+    for (const folder of folders) {
+      result.push({
+        title: folder || 'Unfiled',
+        data: folderMap.get(folder)!,
+      });
+    }
+    return result;
+  }, [projects]);
+
+  async function handleCreate(folder?: string) {
     const project = await create();
+    // If creating within a folder, we'll set the folder in the editor
+    if (folder && folder !== 'Unfiled') {
+      (global as any).__newProjectFolder = folder;
+    }
     router.push(`/project/${project.id}`);
   }
 
@@ -79,33 +113,52 @@ export default function ProjectListScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={projects}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => router.push(`/project/${item.id}`)}
-              onLongPress={() => handleDelete(item.id, item.name)}
-            >
-              <View style={[styles.projectInfo, { backgroundColor: colors.card }]}>
-                <Text style={[styles.projectName, { color: colors.text }]}>
-                  {item.name}
+          renderSectionHeader={({ section }) => (
+            sections.length > 1 || section.title !== 'Unfiled' ? (
+              <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+                <Text style={[styles.sectionTitle, { color: colors.secondaryText }]}>
+                  {section.title}
                 </Text>
-                <Text style={[styles.projectDate, { color: colors.secondaryText }]}>
-                  {formatDate(item.updatedAt)}
+                <Text style={[styles.sectionCount, { color: colors.secondaryText }]}>
+                  {section.data.length}
                 </Text>
               </View>
-              <Text style={[styles.arrow, { color: colors.secondaryText }]}>›</Text>
-            </TouchableOpacity>
+            ) : null
+          )}
+          renderItem={({ item }) => (
+            <View style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.projectMain}
+                onPress={() => router.push(`/project/${item.id}`)}
+              >
+                <View style={[styles.projectInfo, { backgroundColor: colors.card }]}>
+                  <Text style={[styles.projectName, { color: colors.text }]}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.projectDate, { color: colors.secondaryText }]}>
+                    {formatDate(item.updatedAt)}
+                  </Text>
+                </View>
+                <Text style={[styles.arrow, { color: colors.secondaryText }]}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteBtn, { borderLeftColor: colors.border }]}
+                onPress={() => handleDelete(item.id, item.name)}
+              >
+                <Text style={[styles.deleteText, { color: colors.danger }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
           )}
         />
       )}
 
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.tint }]}
-        onPress={handleCreate}
+        onPress={() => handleCreate()}
       >
         <Text style={styles.fabText}>+ New Project</Text>
       </TouchableOpacity>
@@ -127,13 +180,36 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionCount: {
+    fontSize: 12,
+  },
   projectCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
     marginBottom: 10,
+    overflow: 'hidden',
+  },
+  projectMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
   },
   projectInfo: {
     flex: 1,
@@ -150,6 +226,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '300',
     marginLeft: 8,
+  },
+  deleteBtn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    borderLeftWidth: 1,
+  },
+  deleteText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   emptyState: {
     flex: 1,

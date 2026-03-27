@@ -27,6 +27,7 @@ export default function ProjectEditorScreen() {
   const { project, loading, save } = useProject(id ?? null);
 
   const [name, setName] = useState('');
+  const [folder, setFolder] = useState('');
   const [stockSheets, setStockSheets] = useState<StockSheet[]>([]);
   const [cutPieces, setCutPieces] = useState<CutPiece[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -36,6 +37,10 @@ export default function ProjectEditorScreen() {
   useEffect(() => {
     if (project && !initialized) {
       setName(project.name);
+      // Check if a folder was passed from the project list
+      const passedFolder = (global as any).__newProjectFolder;
+      setFolder(passedFolder || project.folder || '');
+      if (passedFolder) delete (global as any).__newProjectFolder;
       setStockSheets(
         project.stockSheets.map((s) => ({
           ...DEFAULT_STOCK_SHEET,
@@ -58,13 +63,14 @@ export default function ProjectEditorScreen() {
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSave = useCallback(
-    (n: string, ss: StockSheet[], cp: CutPiece[], st: Settings) => {
+    (n: string, f: string, ss: StockSheet[], cp: CutPiece[], st: Settings) => {
       if (!project) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         save({
           ...project,
           name: n,
+          folder: f,
           stockSheets: ss,
           cutPieces: cp,
           settings: st,
@@ -76,8 +82,8 @@ export default function ProjectEditorScreen() {
   );
 
   useEffect(() => {
-    if (initialized) autoSave(name, stockSheets, cutPieces, settings);
-  }, [name, stockSheets, cutPieces, settings, initialized, autoSave]);
+    if (initialized) autoSave(name, folder, stockSheets, cutPieces, settings);
+  }, [name, folder, stockSheets, cutPieces, settings, initialized, autoSave]);
 
   function addSheet() {
     setStockSheets([...stockSheets, { ...DEFAULT_STOCK_SHEET, id: generateId() }]);
@@ -148,14 +154,21 @@ export default function ProjectEditorScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
       >
-        {/* Project Name */}
+        {/* Project Name & Folder */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Project Name</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Project</Text>
           <TextInput
             style={[styles.nameInput, { color: colors.text, borderColor: colors.border }]}
             value={name}
             onChangeText={setName}
             placeholder="My Bookshelf"
+            placeholderTextColor={colors.secondaryText}
+          />
+          <TextInput
+            style={[styles.folderInput, { color: colors.text, borderColor: colors.border }]}
+            value={folder}
+            onChangeText={setFolder}
+            placeholder="Folder (optional)"
             placeholderTextColor={colors.secondaryText}
           />
         </View>
@@ -421,6 +434,9 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, marginBottom: 10, marginTop: -6 },
   nameInput: {
     borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 18,
+  },
+  folderInput: {
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, marginTop: 8,
   },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
   inputGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },

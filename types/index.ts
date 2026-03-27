@@ -102,6 +102,7 @@ export interface PackingResult {
 export interface Project {
   id: string;
   name: string;
+  folder: string; // folder/category name, empty string = unfiled
   createdAt: string; // ISO date
   updatedAt: string;
   stockSheets: StockSheet[];

@@ -38,6 +38,7 @@ export function createNewProject(): Project {
   return {
     id: generateId(),
     name: 'New Project',
+    folder: '',
     createdAt: now,
     updatedAt: now,
     stockSheets: [{ ...DEFAULT_STOCK_SHEET, id: generateId() }],

@@ -11,6 +11,7 @@ import { Project } from '@/types';
 export interface ProjectListItem {
   id: string;
   name: string;
+  folder: string;
   updatedAt: string;
 }
 

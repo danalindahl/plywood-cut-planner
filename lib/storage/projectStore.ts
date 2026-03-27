@@ -18,16 +18,16 @@ async function setIndex(ids: string[]): Promise<void> {
 }
 
 export async function listProjects(): Promise<
-  { id: string; name: string; updatedAt: string }[]
+  { id: string; name: string; folder: string; updatedAt: string }[]
 > {
   const ids = await getIndex();
-  const projects: { id: string; name: string; updatedAt: string }[] = [];
+  const projects: { id: string; name: string; folder: string; updatedAt: string }[] = [];
 
   for (const id of ids) {
     const raw = await AsyncStorage.getItem(projectKey(id));
     if (raw) {
       const p: Project = JSON.parse(raw);
-      projects.push({ id: p.id, name: p.name, updatedAt: p.updatedAt });
+      projects.push({ id: p.id, name: p.name, folder: p.folder || '', updatedAt: p.updatedAt });
     }
   }
 
