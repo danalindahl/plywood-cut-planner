@@ -2,18 +2,15 @@ import { CutPiece, StockSheet, Settings, PackingResult } from '../../types';
 import { packPieces } from './guillotinePacker';
 
 export interface Suggestion {
-  type: 'trim_piece' | 'trim_all' | 'general';
+  type: 'trim_piece' | 'trim_some' | 'trim_all' | 'general';
   message: string;
   sheetsSaved: number;
   trimAmount?: number;
   pieceId?: string;
+  pieceIds?: string[];
   dimension?: 'width' | 'height';
 }
 
-/**
- * Analyze a packing result and suggest small dimension tweaks that save sheets.
- * Tries reducing individual pieces and uniform reductions across all pieces.
- */
 export function generateSuggestions(
   cutPieces: CutPiece[],
   stockSheets: StockSheet[],
@@ -26,9 +23,9 @@ export function generateSuggestions(
   if (currentSheets <= 1) return [];
 
   const trimAmounts = [0.125, 0.25, 0.375, 0.5, 0.75, 1.0];
-  const seen = new Set<string>(); // prevent duplicate messages
+  const seen = new Set<string>();
 
-  // --- Strategy 1: Trim one piece at a time ---
+  // --- Strategy 1: Trim one piece type at a time ---
   for (const piece of cutPieces) {
     if (piece.width <= 0 || piece.height <= 0) continue;
 
@@ -46,64 +43,105 @@ export function generateSuggestions(
 
         if (saved > 0 && newResult.unplacedPieces.length === 0) {
           const dimLabel = dim === 'width' ? 'width' : 'height';
-          const msg = `Reducing "${piece.label || 'Unnamed'}" ${dimLabel} by ${formatTrim(trim)}" (${original}" → ${original - trim}") saves ${saved} sheet${saved > 1 ? 's' : ''}`;
+          const msg = `Trim "${piece.label || 'Unnamed'}" ${dimLabel} by ${formatTrim(trim)}" (${original}" → ${original - trim}") — saves ${saved} sheet${saved > 1 ? 's' : ''}`;
           if (!seen.has(msg)) {
             seen.add(msg);
-            suggestions.push({ type: 'trim_piece', message: msg, sheetsSaved: saved, trimAmount: trim, pieceId: piece.id, dimension: dim });
+            suggestions.push({
+              type: 'trim_piece', message: msg, sheetsSaved: saved,
+              trimAmount: trim, pieceId: piece.id, dimension: dim,
+            });
           }
-          break; // smallest effective trim for this piece+dim
+          break;
         }
       }
     }
   }
 
-  // --- Strategy 2: Uniform trim on all pieces ---
-  for (const trim of trimAmounts) {
-    const modifiedPieces = cutPieces.map((p) => ({
-      ...p,
-      width: Math.max(1, p.width - trim),
-      height: Math.max(1, p.height - trim),
-    }));
+  // --- Strategy 2: Identify pieces on the last sheet and try trimming just those ---
+  if (currentResult.sheets.length > 1) {
+    const lastSheet = currentResult.sheets[currentResult.sheets.length - 1];
+    const lastSheetPieceIds = new Set(lastSheet.placements.map((p) => p.pieceId));
 
-    const newResult = packPieces(modifiedPieces, stockSheets, settings);
-    const saved = currentSheets - newResult.totalSheets;
+    // Try trimming only the piece types that appear on the last sheet
+    for (const trim of trimAmounts) {
+      const modifiedPieces = cutPieces.map((p) => {
+        if (!lastSheetPieceIds.has(p.id)) return p;
+        return {
+          ...p,
+          width: Math.max(1, p.width - trim),
+          height: Math.max(1, p.height - trim),
+        };
+      });
 
-    if (saved > 0 && newResult.unplacedPieces.length === 0) {
-      const msg = `Trimming ${formatTrim(trim)}" off all pieces saves ${saved} sheet${saved > 1 ? 's' : ''}`;
-      if (!seen.has(msg)) {
-        seen.add(msg);
-        suggestions.push({ type: 'trim_all', message: msg, sheetsSaved: saved, trimAmount: trim });
+      const newResult = packPieces(modifiedPieces, stockSheets, settings);
+      const saved = currentSheets - newResult.totalSheets;
+
+      if (saved > 0 && newResult.unplacedPieces.length === 0) {
+        const pieceNames = cutPieces
+          .filter((p) => lastSheetPieceIds.has(p.id))
+          .map((p) => `"${p.label || 'Unnamed'}"`)
+          .join(' and ');
+        const msg = `Trim ${formatTrim(trim)}" off ${pieceNames} — saves ${saved} sheet${saved > 1 ? 's' : ''}`;
+        if (!seen.has(msg)) {
+          seen.add(msg);
+          suggestions.push({
+            type: 'trim_some', message: msg, sheetsSaved: saved,
+            trimAmount: trim, pieceIds: [...lastSheetPieceIds],
+          });
+        }
+        break;
       }
-      break;
     }
   }
 
-  // --- Strategy 3: Check if different kerf saves sheets ---
+  // --- Strategy 3: Trim all pieces (last resort) ---
+  // Only show if no per-piece suggestions found
+  if (suggestions.filter((s) => s.type !== 'general').length === 0) {
+    for (const trim of trimAmounts) {
+      const modifiedPieces = cutPieces.map((p) => ({
+        ...p,
+        width: Math.max(1, p.width - trim),
+        height: Math.max(1, p.height - trim),
+      }));
+
+      const newResult = packPieces(modifiedPieces, stockSheets, settings);
+      const saved = currentSheets - newResult.totalSheets;
+
+      if (saved > 0 && newResult.unplacedPieces.length === 0) {
+        const msg = `Trim ${formatTrim(trim)}" off all pieces — saves ${saved} sheet${saved > 1 ? 's' : ''}`;
+        if (!seen.has(msg)) {
+          seen.add(msg);
+          suggestions.push({ type: 'trim_all', message: msg, sheetsSaved: saved, trimAmount: trim });
+        }
+        break;
+      }
+    }
+  }
+
+  // --- Strategy 4: Thinner blade ---
   if (settings.kerfWidth > 0) {
     const thinKerf = { ...settings, kerfWidth: settings.kerfWidth / 2 };
     const thinResult = packPieces(cutPieces, stockSheets, thinKerf);
     const saved = currentSheets - thinResult.totalSheets;
     if (saved > 0 && thinResult.unplacedPieces.length === 0) {
-      const msg = `Using a thinner blade (${settings.kerfWidth / 2}" kerf) saves ${saved} sheet${saved > 1 ? 's' : ''}`;
+      const msg = `Using a thinner blade (${settings.kerfWidth / 2}" kerf) would save ${saved} sheet${saved > 1 ? 's' : ''}`;
       suggestions.push({ type: 'general', message: msg, sheetsSaved: saved });
     }
   }
 
-  // --- Strategy 4: Check waste on last sheet ---
+  // --- Strategy 5: Last sheet waste warning ---
   if (currentResult.sheets.length > 1) {
     const lastSheet = currentResult.sheets[currentResult.sheets.length - 1];
     if (lastSheet.wastePercent > 70) {
-      const piecesOnLast = lastSheet.placements.length;
-      const totalPieces = currentResult.sheets.reduce((s, sh) => s + sh.placements.length, 0);
-      const msg = `Last sheet is ${lastSheet.wastePercent.toFixed(0)}% waste with only ${piecesOnLast} of ${totalPieces} pieces — see if you can adjust dimensions to avoid it`;
+      const pieceNames = [...new Set(lastSheet.placements.map((p) => p.pieceLabel || 'Unnamed'))].join(', ');
+      const msg = `Last sheet is ${lastSheet.wastePercent.toFixed(0)}% waste — only has: ${pieceNames}`;
       suggestions.push({ type: 'general', message: msg, sheetsSaved: 0 });
     }
   }
 
-  // Sort: most sheets saved first, then by type priority
   return suggestions.sort((a, b) => {
     if (b.sheetsSaved !== a.sheetsSaved) return b.sheetsSaved - a.sheetsSaved;
-    const typePriority = { trim_piece: 0, trim_all: 1, general: 2 };
+    const typePriority: Record<string, number> = { trim_piece: 0, trim_some: 1, trim_all: 2, general: 3 };
     return typePriority[a.type] - typePriority[b.type];
   });
 }

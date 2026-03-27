@@ -60,25 +60,36 @@ export default function ResultsScreen() {
   }, [result, pieces, sheets, settings]);
 
   function applySuggestion(suggestion: Suggestion) {
+    let updated: CutPiece[];
     if (suggestion.type === 'trim_all' && suggestion.trimAmount) {
-      const updated = pieces.map((p) => ({
+      updated = pieces.map((p) => ({
         ...p,
         width: Math.max(1, p.width - suggestion.trimAmount!),
         height: Math.max(1, p.height - suggestion.trimAmount!),
       }));
-      setPieces(updated);
-      recalculate(updated);
-    } else if (suggestion.type === 'trim_piece' && suggestion.pieceId) {
-      const updated = pieces.map((p) => {
+    } else if (suggestion.type === 'trim_some' && suggestion.pieceIds && suggestion.trimAmount) {
+      const ids = new Set(suggestion.pieceIds);
+      updated = pieces.map((p) => {
+        if (!ids.has(p.id)) return p;
+        return {
+          ...p,
+          width: Math.max(1, p.width - suggestion.trimAmount!),
+          height: Math.max(1, p.height - suggestion.trimAmount!),
+        };
+      });
+    } else if (suggestion.type === 'trim_piece' && suggestion.pieceId && suggestion.dimension) {
+      updated = pieces.map((p) => {
         if (p.id !== suggestion.pieceId) return p;
         return {
           ...p,
           [suggestion.dimension!]: Math.max(1, p[suggestion.dimension!] - suggestion.trimAmount!),
         };
       });
-      setPieces(updated);
-      recalculate(updated);
+    } else {
+      return;
     }
+    setPieces(updated);
+    recalculate(updated);
   }
 
   if (!result) {
@@ -181,6 +192,16 @@ export default function ResultsScreen() {
           <Text style={[styles.editorHint, { color: colors.secondaryText }]}>
             Changes recalculate instantly
           </Text>
+          <View style={[styles.editorHeaderRow, { backgroundColor: colors.card }]}>
+            <Text style={[styles.editorHeaderLabel, { color: colors.secondaryText }]}>Piece</Text>
+            <View style={[styles.editorHeaderInputs, { backgroundColor: colors.card }]}>
+              <Text style={[styles.editorHeaderCol, { color: colors.secondaryText }]}>Width</Text>
+              <Text style={[styles.editorHeaderSpacer, { color: colors.card }]}>×</Text>
+              <Text style={[styles.editorHeaderCol, { color: colors.secondaryText }]}>Height</Text>
+              <Text style={[styles.editorHeaderSpacer, { color: colors.card }]}>×</Text>
+              <Text style={[styles.editorHeaderQty, { color: colors.secondaryText }]}>Qty</Text>
+            </View>
+          </View>
           {pieces.map((piece, i) => (
             <View key={piece.id} style={[styles.editorRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
               <Text style={[styles.editorLabel, { color: colors.text }]} numberOfLines={1}>
@@ -228,7 +249,7 @@ export default function ResultsScreen() {
               <Text style={[styles.suggestionText, { color: '#1b5e20' }]}>
                 {s.message}
               </Text>
-              {(s.type === 'trim_piece' || s.type === 'trim_all') && (
+              {(s.type === 'trim_piece' || s.type === 'trim_some' || s.type === 'trim_all') && (
                 <TouchableOpacity
                   style={[styles.applyBtn, { backgroundColor: '#2E7D32' }]}
                   onPress={() => applySuggestion(s)}
@@ -379,6 +400,15 @@ const styles = StyleSheet.create({
   editorCard: { borderRadius: 12, padding: 16, marginBottom: 16 },
   editorTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
   editorHint: { fontSize: 12, marginBottom: 12 },
+  editorHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingBottom: 4, marginBottom: 4, gap: 8,
+  },
+  editorHeaderLabel: { flex: 1, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  editorHeaderInputs: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editorHeaderCol: { width: 55, fontSize: 11, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase' },
+  editorHeaderQty: { width: 40, fontSize: 11, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase' },
+  editorHeaderSpacer: { fontSize: 14 },
   editorRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 8, borderBottomWidth: 1, gap: 8,
