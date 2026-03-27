@@ -29,6 +29,8 @@ export default function ProjectListScreen() {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
   useFocusEffect(
     React.useCallback(() => {
@@ -65,6 +67,16 @@ export default function ProjectListScreen() {
     if (folder && folder !== 'Unfiled') {
       (global as any).__newProjectFolder = folder;
     }
+    router.push(`/project/${project.id}`);
+  }
+
+  async function handleNewFolder() {
+    const folderName = newFolderName.trim();
+    if (!folderName) return;
+    setShowNewFolder(false);
+    setNewFolderName('');
+    const project = await create();
+    (global as any).__newProjectFolder = folderName;
     router.push(`/project/${project.id}`);
   }
 
@@ -240,12 +252,58 @@ export default function ProjectListScreen() {
         </Modal>
       )}
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.tint }]}
-        onPress={() => handleCreate()}
-      >
-        <Text style={styles.fabText}>+ New Project</Text>
-      </TouchableOpacity>
+      {/* New Folder modal */}
+      {showNewFolder && (
+        <Modal transparent animationType="fade" visible>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowNewFolder(false)}
+          >
+            <View style={[styles.renameModal, { backgroundColor: colors.card }]}>
+              <Text style={[styles.renameTitle, { color: colors.text }]}>New Folder</Text>
+              <TextInput
+                style={[styles.renameInput, { color: colors.text, borderColor: colors.border }]}
+                value={newFolderName}
+                onChangeText={setNewFolderName}
+                autoFocus
+                onSubmitEditing={handleNewFolder}
+                placeholder="Folder name"
+                placeholderTextColor={colors.secondaryText}
+              />
+              <View style={[styles.renameButtons, { backgroundColor: colors.card }]}>
+                <TouchableOpacity
+                  style={[styles.renameBtn, { borderColor: colors.border }]}
+                  onPress={() => setShowNewFolder(false)}
+                >
+                  <Text style={{ color: colors.secondaryText, fontSize: 15, fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.renameBtn, { backgroundColor: colors.tint }]}
+                  onPress={handleNewFolder}
+                >
+                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Create</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      <View style={[styles.fabRow, { backgroundColor: 'transparent' }]}>
+        <TouchableOpacity
+          style={[styles.fabSecondary, { borderColor: colors.tint }]}
+          onPress={() => { setNewFolderName(''); setShowNewFolder(true); }}
+        >
+          <Text style={[styles.fabSecondaryText, { color: colors.tint }]}>+ Folder</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: colors.tint }]}
+          onPress={() => handleCreate()}
+        >
+          <Text style={styles.fabText}>+ New Project</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -369,10 +427,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
-  fab: {
+  fabRow: {
     position: 'absolute',
     bottom: 30,
+    flexDirection: 'row',
     alignSelf: 'center',
+    gap: 10,
+  },
+  fab: {
     borderRadius: 30,
     paddingHorizontal: 28,
     paddingVertical: 16,
@@ -385,6 +447,22 @@ const styles = StyleSheet.create({
   fabText: {
     color: '#fff',
     fontSize: 17,
+    fontWeight: '700',
+  },
+  fabSecondary: {
+    borderRadius: 30,
+    borderWidth: 2,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  fabSecondaryText: {
+    fontSize: 15,
     fontWeight: '700',
   },
   modalOverlay: {
