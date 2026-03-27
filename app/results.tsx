@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Platform,
   Alert,
   ActivityIndicator,
@@ -16,21 +17,69 @@ import Colors from '@/constants/Colors';
 import CuttingDiagram from '@/components/CuttingDiagram';
 import { PackingResult, CutPiece, StockSheet, Settings } from '@/types';
 import { generatePdfHtml } from '@/lib/export/pdfTemplate';
-import { generateSuggestions } from '@/lib/packing/suggestions';
+import { generateSuggestions, Suggestion } from '@/lib/packing/suggestions';
+import { packPieces } from '@/lib/packing/guillotinePacker';
+import { parseFraction } from '@/lib/fractions';
 
 export default function ResultsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const [exporting, setExporting] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
 
-  const result: PackingResult | undefined = (global as any).__packingResult;
+  const initialResult: PackingResult | undefined = (global as any).__packingResult;
   const inputData: { pieces: CutPiece[]; sheets: StockSheet[]; settings: Settings } | undefined =
     (global as any).__packingInput;
 
+  // Editable state — starts from the original input
+  const [pieces, setPieces] = useState<CutPiece[]>(inputData?.pieces || []);
+  const [sheets] = useState<StockSheet[]>(inputData?.sheets || []);
+  const [settings] = useState<Settings>(inputData?.settings || { kerfWidth: 0.125, units: 'imperial', optimizationMode: 'less_waste', trimming: { top: 0, bottom: 0, left: 0, right: 0 } });
+  const [result, setResult] = useState<PackingResult | undefined>(initialResult);
+
+  const recalculate = useCallback((updatedPieces: CutPiece[]) => {
+    const validPieces = updatedPieces.filter((p) => p.width > 0 && p.height > 0 && p.quantity > 0);
+    const validSheets = sheets.filter((s) => s.width > 0 && s.height > 0 && s.quantity > 0);
+    if (validPieces.length === 0 || validSheets.length === 0) return;
+    const newResult = packPieces(validPieces, validSheets, settings);
+    setResult(newResult);
+    (global as any).__packingResult = newResult;
+    (global as any).__packingInput = { pieces: updatedPieces, sheets, settings };
+  }, [sheets, settings]);
+
+  function updatePiece(index: number, field: 'width' | 'height' | 'quantity', value: number) {
+    const updated = [...pieces];
+    updated[index] = { ...updated[index], [field]: value };
+    setPieces(updated);
+    recalculate(updated);
+  }
+
   const suggestions = useMemo(() => {
-    if (!result || !inputData) return [];
-    return generateSuggestions(inputData.pieces, inputData.sheets, inputData.settings, result);
-  }, [result, inputData]);
+    if (!result || pieces.length === 0) return [];
+    return generateSuggestions(pieces, sheets, settings, result);
+  }, [result, pieces, sheets, settings]);
+
+  function applySuggestion(suggestion: Suggestion) {
+    if (suggestion.type === 'trim_all' && suggestion.trimAmount) {
+      const updated = pieces.map((p) => ({
+        ...p,
+        width: Math.max(1, p.width - suggestion.trimAmount!),
+        height: Math.max(1, p.height - suggestion.trimAmount!),
+      }));
+      setPieces(updated);
+      recalculate(updated);
+    } else if (suggestion.type === 'trim_piece' && suggestion.pieceId) {
+      const updated = pieces.map((p) => {
+        if (p.id !== suggestion.pieceId) return p;
+        return {
+          ...p,
+          [suggestion.dimension!]: Math.max(1, p[suggestion.dimension!] - suggestion.trimAmount!),
+        };
+      });
+      setPieces(updated);
+      recalculate(updated);
+    }
+  }
 
   if (!result) {
     return (
@@ -46,9 +95,7 @@ export default function ResultsScreen() {
     setExporting(true);
     try {
       const html = generatePdfHtml(result);
-
       if (Platform.OS === 'web') {
-        // On web, open a print dialog with the HTML
         const printWindow = window.open('', '_blank');
         if (printWindow) {
           printWindow.document.write(html);
@@ -56,7 +103,6 @@ export default function ResultsScreen() {
           printWindow.print();
         }
       } else {
-        // On native, generate PDF and share
         const { uri } = await Print.printToFileAsync({ html });
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
@@ -71,11 +117,7 @@ export default function ResultsScreen() {
       }
     } catch (err: any) {
       const msg = err?.message || 'Failed to export PDF';
-      if (Platform.OS === 'web') {
-        alert(msg);
-      } else {
-        Alert.alert('Export Error', msg);
-      }
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Export Error', msg);
     } finally {
       setExporting(false);
     }
@@ -90,24 +132,30 @@ export default function ResultsScreen() {
       <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
         <View style={[styles.statsHeader, { backgroundColor: colors.card }]}>
           <Text style={[styles.statsTitle, { color: colors.text }]}>Summary</Text>
-          <TouchableOpacity
-            style={[styles.exportBtn, { backgroundColor: colors.tint }]}
-            onPress={handleExport}
-            disabled={exporting}
-          >
-            {exporting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.exportBtnText}>Export PDF</Text>
-            )}
-          </TouchableOpacity>
+          <View style={[styles.headerBtns, { backgroundColor: colors.card }]}>
+            <TouchableOpacity
+              style={[styles.headerBtn, { borderColor: colors.tint }]}
+              onPress={() => setShowEditor(!showEditor)}
+            >
+              <Text style={{ color: colors.tint, fontSize: 13, fontWeight: '600' }}>
+                {showEditor ? 'Hide Editor' : 'Edit Pieces'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.exportBtn, { backgroundColor: colors.tint }]}
+              onPress={handleExport}
+              disabled={exporting}
+            >
+              {exporting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.exportBtnText}>Export PDF</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
-          <StatBox
-            label="Sheets"
-            value={String(result.totalSheets)}
-            colors={colors}
-          />
+          <StatBox label="Sheets" value={String(result.totalSheets)} colors={colors} />
           <StatBox
             label="Waste"
             value={`${result.totalWastePercent.toFixed(1)}%`}
@@ -126,6 +174,49 @@ export default function ResultsScreen() {
         </Text>
       </View>
 
+      {/* Inline Piece Editor */}
+      {showEditor && (
+        <View style={[styles.editorCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.editorTitle, { color: colors.text }]}>Edit Dimensions</Text>
+          <Text style={[styles.editorHint, { color: colors.secondaryText }]}>
+            Changes recalculate instantly
+          </Text>
+          {pieces.map((piece, i) => (
+            <View key={piece.id} style={[styles.editorRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+              <Text style={[styles.editorLabel, { color: colors.text }]} numberOfLines={1}>
+                {piece.label || 'Unnamed'}
+              </Text>
+              <View style={[styles.editorInputs, { backgroundColor: colors.card }]}>
+                <TextInput
+                  style={[styles.editorInput, { color: colors.text, borderColor: colors.border }]}
+                  value={piece.width ? String(piece.width) : ''}
+                  onChangeText={(t) => updatePiece(i, 'width', parseFraction(t))}
+                  placeholder="W"
+                  placeholderTextColor={colors.secondaryText}
+                />
+                <Text style={[styles.editorX, { color: colors.secondaryText }]}>×</Text>
+                <TextInput
+                  style={[styles.editorInput, { color: colors.text, borderColor: colors.border }]}
+                  value={piece.height ? String(piece.height) : ''}
+                  onChangeText={(t) => updatePiece(i, 'height', parseFraction(t))}
+                  placeholder="H"
+                  placeholderTextColor={colors.secondaryText}
+                />
+                <Text style={[styles.editorX, { color: colors.secondaryText }]}>×</Text>
+                <TextInput
+                  style={[styles.editorInput, styles.editorQty, { color: colors.text, borderColor: colors.border }]}
+                  value={piece.quantity ? String(piece.quantity) : ''}
+                  onChangeText={(t) => updatePiece(i, 'quantity', parseInt(t) || 0)}
+                  keyboardType="number-pad"
+                  placeholder="#"
+                  placeholderTextColor={colors.secondaryText}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Optimization Suggestions */}
       {suggestions.length > 0 && (
         <View style={[styles.suggestionsCard, { backgroundColor: '#e8f5e9', borderColor: '#81C784' }]}>
@@ -134,12 +225,17 @@ export default function ResultsScreen() {
           </Text>
           {suggestions.map((s, i) => (
             <View key={i} style={styles.suggestionRow}>
-              <Text style={[styles.suggestionBullet, { color: '#2E7D32' }]}>
-                {s.sheetsSaved > 1 ? '!!' : ''}
-              </Text>
               <Text style={[styles.suggestionText, { color: '#1b5e20' }]}>
                 {s.message}
               </Text>
+              {(s.type === 'trim_piece' || s.type === 'trim_all') && (
+                <TouchableOpacity
+                  style={[styles.applyBtn, { backgroundColor: '#2E7D32' }]}
+                  onPress={() => applySuggestion(s)}
+                >
+                  <Text style={styles.applyBtnText}>Apply</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
         </View>
@@ -149,11 +245,11 @@ export default function ResultsScreen() {
       {result.unplacedPieces.length > 0 && (
         <View style={[styles.warningCard, { backgroundColor: '#fff3e0' }]}>
           <Text style={[styles.warningText, { color: '#e65100' }]}>
-            ⚠ {result.unplacedPieces.length} piece(s) couldn't be placed:
+            {result.unplacedPieces.length} piece(s) couldn't be placed:
           </Text>
           {result.unplacedPieces.map((p) => (
             <Text key={p.id} style={{ color: '#e65100', marginLeft: 16 }}>
-              • {p.label || 'Unnamed'} ({p.width}×{p.height}) ×{p.quantity}
+              {p.label || 'Unnamed'} ({p.width}×{p.height}) ×{p.quantity}
             </Text>
           ))}
         </View>
@@ -203,19 +299,15 @@ export default function ResultsScreen() {
 
           <CuttingDiagram layout={sheetLayout} sheetIndex={i} />
 
-          {/* Cut list for this sheet */}
           <View style={[styles.cutList, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cutListTitle, { color: colors.secondaryText }]}>
-              Cut List
-            </Text>
+            <Text style={[styles.cutListTitle, { color: colors.secondaryText }]}>Cut List</Text>
             {sheetLayout.placements.map((p, j) => (
               <View key={j} style={[styles.cutListRow, { backgroundColor: colors.card }]}>
                 <Text style={[styles.cutListLabel, { color: colors.text }]}>
                   {p.pieceLabel || `Piece ${j + 1}`}
                 </Text>
                 <Text style={[styles.cutListDim, { color: colors.secondaryText }]}>
-                  {p.width}×{p.height}
-                  {p.rotated ? ' (rotated)' : ''}
+                  {p.width}×{p.height}{p.rotated ? ' (rotated)' : ''}
                 </Text>
                 <Text style={[styles.cutListPos, { color: colors.secondaryText }]}>
                   @ ({p.x}, {p.y})
@@ -224,19 +316,14 @@ export default function ResultsScreen() {
             ))}
           </View>
 
-          {/* Usable Offcuts */}
           {sheetLayout.offcuts.filter((o) => o.usable).length > 0 && (
             <View style={[styles.cutList, { backgroundColor: colors.card }]}>
-              <Text style={[styles.cutListTitle, { color: colors.tint }]}>
-                Usable Offcuts
-              </Text>
+              <Text style={[styles.cutListTitle, { color: colors.tint }]}>Usable Offcuts</Text>
               {sheetLayout.offcuts
                 .filter((o) => o.usable)
                 .map((o, j) => (
                   <View key={j} style={[styles.cutListRow, { backgroundColor: colors.card }]}>
-                    <Text style={[styles.cutListLabel, { color: colors.text }]}>
-                      Offcut {j + 1}
-                    </Text>
+                    <Text style={[styles.cutListLabel, { color: colors.text }]}>Offcut {j + 1}</Text>
                     <Text style={[styles.cutListDim, { color: colors.secondaryText }]}>
                       {o.width}×{o.height}
                     </Text>
@@ -255,30 +342,15 @@ export default function ResultsScreen() {
   );
 }
 
-function StatBox({
-  label,
-  value,
-  colors,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  colors: any;
-  highlight?: boolean;
+function StatBox({ label, value, colors, highlight }: {
+  label: string; value: string; colors: any; highlight?: boolean;
 }) {
   return (
     <View style={[styles.statBox, { backgroundColor: colors.card }]}>
-      <Text
-        style={[
-          styles.statValue,
-          { color: highlight ? colors.danger : colors.tint },
-        ]}
-      >
+      <Text style={[styles.statValue, { color: highlight ? colors.danger : colors.tint }]}>
         {value}
       </Text>
-      <Text style={[styles.statLabel, { color: colors.secondaryText }]}>
-        {label}
-      </Text>
+      <Text style={[styles.statLabel, { color: colors.secondaryText }]}>{label}</Text>
     </View>
   );
 }
@@ -287,146 +359,64 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
   title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginTop: 40 },
-  statsCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
+  statsCard: { borderRadius: 12, padding: 16, marginBottom: 16 },
   statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12,
   },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  headerBtns: { flexDirection: 'row', gap: 8 },
+  headerBtn: {
+    borderRadius: 8, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center',
   },
-  exportBtn: {
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minWidth: 100,
-    alignItems: 'center',
+  statsTitle: { fontSize: 18, fontWeight: '700' },
+  exportBtn: { borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, minWidth: 100, alignItems: 'center' },
+  exportBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8 },
+  statBox: { alignItems: 'center' },
+  statValue: { fontSize: 28, fontWeight: '800' },
+  statLabel: { fontSize: 13, marginTop: 2 },
+  statsDetail: { textAlign: 'center', fontSize: 13, marginTop: 4 },
+
+  editorCard: { borderRadius: 12, padding: 16, marginBottom: 16 },
+  editorTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  editorHint: { fontSize: 12, marginBottom: 12 },
+  editorRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 8, borderBottomWidth: 1, gap: 8,
   },
-  exportBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
+  editorLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
+  editorInputs: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editorInput: {
+    borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6,
+    fontSize: 15, width: 55, textAlign: 'center',
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  statLabel: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  statsDetail: {
-    textAlign: 'center',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  warningCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  warningText: {
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  sheetSection: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sheetHeader: {
-    marginBottom: 8,
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sheetStats: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  cutList: {
-    marginTop: 12,
-  },
-  cutListTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  cutListRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-  },
-  cutListLabel: {
-    flex: 2,
-    fontSize: 14,
-  },
-  cutListDim: {
-    flex: 1,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  cutListPos: {
-    flex: 1,
-    fontSize: 12,
-    textAlign: 'right',
-  },
-  suggestionsCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-  },
-  suggestionsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
+  editorQty: { width: 40 },
+  editorX: { fontSize: 14 },
+
+  suggestionsCard: { borderRadius: 12, borderWidth: 1, padding: 16, marginBottom: 16 },
+  suggestionsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
   suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-    gap: 6,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 8, gap: 8,
   },
-  suggestionBullet: {
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  suggestionText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  suggestionText: { flex: 1, fontSize: 14, lineHeight: 20 },
+  applyBtn: { borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  applyBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  warningCard: { borderRadius: 12, padding: 16, marginBottom: 16 },
+  warningText: { fontWeight: '700', marginBottom: 4 },
+  sheetSection: { borderRadius: 12, padding: 16, marginBottom: 16 },
+  sheetHeader: { marginBottom: 8 },
+  sheetTitle: { fontSize: 16, fontWeight: '700' },
+  sheetStats: { fontSize: 13, marginTop: 2 },
+  cutList: { marginTop: 12 },
+  cutListTitle: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  cutListRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  cutListLabel: { flex: 2, fontSize: 14 },
+  cutListDim: { flex: 1, fontSize: 14, textAlign: 'center' },
+  cutListPos: { flex: 1, fontSize: 12, textAlign: 'right' },
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginTop: 8,
-    borderTopWidth: 1,
+    flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, marginTop: 8, borderTopWidth: 1,
   },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
+  totalLabel: { fontSize: 16, fontWeight: '700' },
+  totalValue: { fontSize: 18, fontWeight: '800' },
 });

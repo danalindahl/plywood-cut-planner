@@ -5,6 +5,9 @@ export interface Suggestion {
   type: 'trim_piece' | 'trim_all' | 'general';
   message: string;
   sheetsSaved: number;
+  trimAmount?: number;
+  pieceId?: string;
+  dimension?: 'width' | 'height';
 }
 
 /**
@@ -46,7 +49,7 @@ export function generateSuggestions(
           const msg = `Reducing "${piece.label || 'Unnamed'}" ${dimLabel} by ${formatTrim(trim)}" (${original}" → ${original - trim}") saves ${saved} sheet${saved > 1 ? 's' : ''}`;
           if (!seen.has(msg)) {
             seen.add(msg);
-            suggestions.push({ type: 'trim_piece', message: msg, sheetsSaved: saved });
+            suggestions.push({ type: 'trim_piece', message: msg, sheetsSaved: saved, trimAmount: trim, pieceId: piece.id, dimension: dim });
           }
           break; // smallest effective trim for this piece+dim
         }
@@ -69,7 +72,7 @@ export function generateSuggestions(
       const msg = `Trimming ${formatTrim(trim)}" off all pieces saves ${saved} sheet${saved > 1 ? 's' : ''}`;
       if (!seen.has(msg)) {
         seen.add(msg);
-        suggestions.push({ type: 'trim_all', message: msg, sheetsSaved: saved });
+        suggestions.push({ type: 'trim_all', message: msg, sheetsSaved: saved, trimAmount: trim });
       }
       break;
     }
