@@ -149,9 +149,7 @@ export default function AuthScreen() {
             onPress={async () => {
               setError('');
               try {
-                const redirectTo = Platform.OS === 'web' && typeof window !== 'undefined'
-                  ? window.location.origin
-                  : 'https://plywoodcutplanner.com';
+                const redirectTo = 'https://plywoodcutplanner.com';
                 const { error } = await supabase.auth.signInWithOAuth({
                   provider: 'google',
                   options: { redirectTo },
