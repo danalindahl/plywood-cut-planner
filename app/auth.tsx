@@ -12,12 +12,14 @@ import {
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { useRouter } from 'expo-router';
 import { useAuthContext } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 export default function AuthScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const router = useRouter();
   const { signUp, signIn } = useAuthContext();
 
   const [isSignUp, setIsSignUp] = useState(false);
@@ -180,10 +182,7 @@ export default function AuthScreen() {
           <TouchableOpacity
             style={styles.skipBtn}
             onPress={() => {
-              (global as any).__skipAuth = true;
-              if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.location.reload();
-              }
+              router.replace('/');
             }}
           >
             <Text style={{ color: colors.secondaryText, fontSize: 13 }}>
