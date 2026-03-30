@@ -141,12 +141,7 @@ export default function ProjectListScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Nav bar */}
       <View style={[styles.navBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View style={[styles.navLeft, { backgroundColor: colors.card }]}>
-          <Text style={[styles.navTitle, { color: colors.tint }]}>Plywood Cut Planner</Text>
-          <TouchableOpacity onPress={() => router.push('/privacy')}>
-            <Text style={[styles.navPrivacy, { color: colors.secondaryText }]}>Privacy</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={[styles.navTitle, { color: colors.tint }]}>Plywood Cut Planner</Text>
         {user ? (
           <View style={[styles.navRight, { backgroundColor: colors.card }]}>
             <Text style={[styles.navEmail, { color: colors.secondaryText }]} numberOfLines={1}>
@@ -372,6 +367,11 @@ export default function ProjectListScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={[styles.footer, { backgroundColor: colors.background }]}>
+        <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <Text style={[styles.footerLink, { color: colors.secondaryText }]}>Privacy Policy</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -388,17 +388,9 @@ const styles = StyleSheet.create({
     paddingTop: 48, // safe area for mobile
     borderBottomWidth: 1,
   },
-  navLeft: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 12,
-  },
   navTitle: {
     fontSize: 20,
     fontWeight: '800',
-  },
-  navPrivacy: {
-    fontSize: 12,
   },
   navRight: {
     flexDirection: 'row',
@@ -552,9 +544,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
+  footer: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+  },
+  footerLink: {
+    fontSize: 11,
+  },
   fabRow: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 40,
     flexDirection: 'row',
     alignSelf: 'center',
     gap: 10,
