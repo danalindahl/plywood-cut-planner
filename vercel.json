@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/auth", "destination": "/auth.html" },
+    { "source": "/results", "destination": "/results.html" },
+    { "source": "/project/:id", "destination": "/project/[id].html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
