@@ -275,15 +275,6 @@ export default function ProjectListScreen() {
         />
       )}
 
-      {/* Footer */}
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.push('/privacy')}>
-          <Text style={[styles.footerLink, { color: colors.secondaryText }]}>Privacy Policy</Text>
-        </TouchableOpacity>
-        <Text style={[styles.footerDot, { color: colors.secondaryText }]}>·</Text>
-        <Text style={[styles.footerText, { color: colors.secondaryText }]}>Plywood Cut Planner</Text>
-      </View>
-
       {/* Rename modal */}
       {renameId && (
         <Modal transparent animationType="fade" visible>
@@ -374,6 +365,15 @@ export default function ProjectListScreen() {
         >
           <Text style={styles.fabText}>+ New Project</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Footer — always at very bottom */}
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <Text style={[styles.footerLink, { color: colors.secondaryText }]}>Privacy Policy</Text>
+        </TouchableOpacity>
+        <Text style={[styles.footerDot, { color: colors.secondaryText }]}>·</Text>
+        <Text style={[styles.footerText, { color: colors.secondaryText }]}>Plywood Cut Planner</Text>
       </View>
     </View>
   );
@@ -548,14 +548,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingBottom: 100,
-    borderTopWidth: 1,
-    marginHorizontal: 16,
-    marginTop: 8,
+    paddingVertical: 8,
     gap: 6,
   },
   footerLink: {
