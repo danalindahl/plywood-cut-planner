@@ -17,6 +17,7 @@ import Colors from '@/constants/Colors';
 import { useProjectList, ProjectListItem } from '@/hooks/useProjects';
 import { useAuthContext } from '@/lib/AuthContext';
 import { migrateLocalToCloud } from '@/lib/storage/projectStore';
+// Auth display handled by global AppHeader
 
 interface Section {
   title: string;
@@ -139,29 +140,6 @@ export default function ProjectListScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Nav bar */}
-      <View style={[styles.navBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Text style={[styles.navTitle, { color: colors.tint }]}>Plywood Cut Planner</Text>
-        {user ? (
-          <View style={[styles.navRight, { backgroundColor: colors.card }]}>
-            <Text style={[styles.navEmail, { color: colors.secondaryText }]} numberOfLines={1}>
-              {user.email}
-            </Text>
-            {migrating && <Text style={{ color: colors.tint, fontSize: 11 }}>Syncing...</Text>}
-            <TouchableOpacity onPress={signOut} style={[styles.navBtn, { borderColor: colors.border }]}>
-              <Text style={{ color: colors.secondaryText, fontSize: 13, fontWeight: '600' }}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            onPress={() => router.push('/auth')}
-            style={[styles.navSignIn, { backgroundColor: colors.tint }]}
-          >
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Sign In</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
       {/* Hero / landing content — always visible */}
       {projects.length === 0 && (
         <View style={[styles.hero, { backgroundColor: colors.background }]}>
@@ -379,39 +357,6 @@ export default function ProjectListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 48, // safe area for mobile
-    borderBottomWidth: 1,
-  },
-  navTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  navRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  navEmail: {
-    fontSize: 12,
-    maxWidth: 160,
-  },
-  navBtn: {
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  navSignIn: {
-    borderRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
   list: {
     padding: 16,
     paddingBottom: 100,

@@ -3,10 +3,12 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/lib/AuthContext';
+import AppHeader from '@/components/AppHeader';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -44,13 +46,16 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ title: 'Sign In', headerShown: false }} />
-        <Stack.Screen name="project/[id]" options={{ title: 'Edit Project' }} />
-        <Stack.Screen name="results" options={{ title: 'Cutting Plan', presentation: 'modal' }} />
-        <Stack.Screen name="privacy" options={{ title: 'Privacy Policy' }} />
-      </Stack>
+      <View style={{ flex: 1 }}>
+        <AppHeader />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="auth" />
+          <Stack.Screen name="project/[id]" />
+          <Stack.Screen name="results" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="privacy" />
+        </Stack>
+      </View>
     </ThemeProvider>
   );
 }
