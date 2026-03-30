@@ -141,7 +141,12 @@ export default function ProjectListScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Nav bar */}
       <View style={[styles.navBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Text style={[styles.navTitle, { color: colors.tint }]}>Plywood Cut Planner</Text>
+        <View style={[styles.navLeft, { backgroundColor: colors.card }]}>
+          <Text style={[styles.navTitle, { color: colors.tint }]}>Plywood Cut Planner</Text>
+          <TouchableOpacity onPress={() => router.push('/privacy')}>
+            <Text style={[styles.navPrivacy, { color: colors.secondaryText }]}>Privacy</Text>
+          </TouchableOpacity>
+        </View>
         {user ? (
           <View style={[styles.navRight, { backgroundColor: colors.card }]}>
             <Text style={[styles.navEmail, { color: colors.secondaryText }]} numberOfLines={1}>
@@ -367,14 +372,6 @@ export default function ProjectListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Footer — always at very bottom */}
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.push('/privacy')}>
-          <Text style={[styles.footerLink, { color: colors.secondaryText }]}>Privacy Policy</Text>
-        </TouchableOpacity>
-        <Text style={[styles.footerDot, { color: colors.secondaryText }]}>·</Text>
-        <Text style={[styles.footerText, { color: colors.secondaryText }]}>Plywood Cut Planner</Text>
-      </View>
     </View>
   );
 }
@@ -391,9 +388,17 @@ const styles = StyleSheet.create({
     paddingTop: 48, // safe area for mobile
     borderBottomWidth: 1,
   },
+  navLeft: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 12,
+  },
   navTitle: {
     fontSize: 20,
     fontWeight: '800',
+  },
+  navPrivacy: {
+    fontSize: 12,
   },
   navRight: {
     flexDirection: 'row',
@@ -546,27 +551,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     paddingHorizontal: 40,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-    gap: 6,
-  },
-  footerLink: {
-    fontSize: 13,
-    textDecorationLine: 'underline',
-  },
-  footerDot: {
-    fontSize: 13,
-  },
-  footerText: {
-    fontSize: 13,
   },
   fabRow: {
     position: 'absolute',
