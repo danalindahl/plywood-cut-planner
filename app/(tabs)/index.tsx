@@ -162,16 +162,45 @@ export default function ProjectListScreen() {
         )}
       </View>
 
+      {/* Hero / landing content — always visible */}
+      {projects.length === 0 && (
+        <View style={[styles.hero, { backgroundColor: colors.background }]}>
+          <Text style={[styles.heroTitle, { color: colors.text }]}>
+            Stop wasting plywood.
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: colors.secondaryText }]}>
+            Enter your cut dimensions and stock sheet sizes. Get an optimized cutting plan that minimizes waste, shows you exactly where to cut, and tells you how many sheets to buy.
+          </Text>
+          <View style={[styles.heroFeatures, { backgroundColor: colors.background }]}>
+            <Text style={[styles.heroFeature, { color: colors.text }]}>
+              Optimized cut layouts with visual diagrams
+            </Text>
+            <Text style={[styles.heroFeature, { color: colors.text }]}>
+              Step-by-step cutting instructions for the saw
+            </Text>
+            <Text style={[styles.heroFeature, { color: colors.text }]}>
+              Shopping list with cost calculator
+            </Text>
+            <Text style={[styles.heroFeature, { color: colors.text }]}>
+              Suggestions to save sheets by adjusting dimensions
+            </Text>
+            <Text style={[styles.heroFeature, { color: colors.text }]}>
+              PDF export to bring to the shop
+            </Text>
+            <Text style={[styles.heroFeature, { color: colors.text }]}>
+              Free to use — sign in to save across devices
+            </Text>
+          </View>
+        </View>
+      )}
+
       {projects.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.background }]}>
-          <Text style={[styles.emptyIcon, { color: colors.secondaryText }]}>
-            🪵
-          </Text>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No projects yet
+            {user ? 'No projects yet' : 'Get started'}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.secondaryText }]}>
-            Create your first cutting plan to get started
+            {user ? 'Create your first cutting plan' : 'Create a project to start optimizing your cuts'}
           </Text>
         </View>
       ) : (
@@ -472,6 +501,29 @@ const styles = StyleSheet.create({
   dropdownDivider: {
     height: 1,
     marginHorizontal: 12,
+  },
+  hero: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  heroSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  heroFeatures: {
+    gap: 6,
+  },
+  heroFeature: {
+    fontSize: 14,
+    lineHeight: 20,
+    paddingLeft: 16,
   },
   emptyState: {
     flex: 1,
