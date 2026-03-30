@@ -49,6 +49,7 @@ function RootLayoutNav() {
         <Stack.Screen name="auth" options={{ title: 'Sign In', headerShown: false }} />
         <Stack.Screen name="project/[id]" options={{ title: 'Edit Project' }} />
         <Stack.Screen name="results" options={{ title: 'Cutting Plan', presentation: 'modal' }} />
+        <Stack.Screen name="privacy" options={{ title: 'Privacy Policy' }} />
       </Stack>
     </ThemeProvider>
   );
