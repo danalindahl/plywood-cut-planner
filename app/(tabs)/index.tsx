@@ -323,6 +323,13 @@ export default function ProjectListScreen() {
         </Modal>
       )}
 
+      <TouchableOpacity
+        style={styles.privacyLink}
+        onPress={() => router.push('/privacy')}
+      >
+        <Text style={{ color: colors.secondaryText, fontSize: 12 }}>Privacy Policy</Text>
+      </TouchableOpacity>
+
       <View style={[styles.fabRow, { backgroundColor: 'transparent' }]}>
         <TouchableOpacity
           style={[styles.fabSecondary, { borderColor: colors.tint }]}
@@ -485,6 +492,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  privacyLink: {
+    position: 'absolute',
+    bottom: 85,
+    alignSelf: 'center',
   },
   fabRow: {
     position: 'absolute',
