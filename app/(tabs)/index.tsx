@@ -275,6 +275,15 @@ export default function ProjectListScreen() {
         />
       )}
 
+      {/* Footer */}
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.push('/privacy')}>
+          <Text style={[styles.footerLink, { color: colors.secondaryText }]}>Privacy Policy</Text>
+        </TouchableOpacity>
+        <Text style={[styles.footerDot, { color: colors.secondaryText }]}>·</Text>
+        <Text style={[styles.footerText, { color: colors.secondaryText }]}>Plywood Cut Planner</Text>
+      </View>
+
       {/* Rename modal */}
       {renameId && (
         <Modal transparent animationType="fade" visible>
@@ -351,13 +360,6 @@ export default function ProjectListScreen() {
           </TouchableOpacity>
         </Modal>
       )}
-
-      <TouchableOpacity
-        style={styles.privacyLink}
-        onPress={() => router.push('/privacy')}
-      >
-        <Text style={{ color: colors.secondaryText, fontSize: 12 }}>Privacy Policy</Text>
-      </TouchableOpacity>
 
       <View style={[styles.fabRow, { backgroundColor: 'transparent' }]}>
         <TouchableOpacity
@@ -545,10 +547,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
-  privacyLink: {
-    position: 'absolute',
-    bottom: 85,
-    alignSelf: 'center',
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingBottom: 100,
+    borderTopWidth: 1,
+    marginHorizontal: 16,
+    marginTop: 8,
+    gap: 6,
+  },
+  footerLink: {
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  footerDot: {
+    fontSize: 13,
+  },
+  footerText: {
+    fontSize: 13,
   },
   fabRow: {
     position: 'absolute',
