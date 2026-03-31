@@ -21,11 +21,44 @@ import { generateSuggestions, Suggestion } from '@/lib/packing/suggestions';
 import { packPieces } from '@/lib/packing/guillotinePacker';
 import { parseFraction } from '@/lib/fractions';
 
+function FractionInput({ value, onValueChange, placeholder, style, placeholderTextColor }: {
+  value: number;
+  onValueChange: (n: number) => void;
+  placeholder?: string;
+  style?: any;
+  placeholderTextColor?: string;
+}) {
+  const [text, setText] = React.useState(value ? String(value) : '');
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!focused) {
+      setText(value ? String(value) : '');
+    }
+  }, [value, focused]);
+
+  return (
+    <TextInput
+      style={style}
+      value={text}
+      onChangeText={setText}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        onValueChange(parseFraction(text));
+      }}
+      placeholder={placeholder}
+      placeholderTextColor={placeholderTextColor}
+    />
+  );
+}
+
 export default function ResultsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const [exporting, setExporting] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [activeSheet, setActiveSheet] = useState(0); // for per-sheet navigation
   const [showAllSheets, setShowAllSheets] = useState(true);
   const [diagramZoom, setDiagramZoom] = useState(1.0);
@@ -36,25 +69,40 @@ export default function ResultsScreen() {
 
   // Editable state — starts from the original input
   const [pieces, setPieces] = useState<CutPiece[]>(inputData?.pieces || []);
-  const [sheets] = useState<StockSheet[]>(inputData?.sheets || []);
-  const [settings] = useState<Settings>(inputData?.settings || { kerfWidth: 0.125, units: 'imperial', optimizationMode: 'less_waste', trimming: { top: 0, bottom: 0, left: 0, right: 0 } });
+  const [sheets, setSheets] = useState<StockSheet[]>(inputData?.sheets || []);
+  const [settings, setSettings] = useState<Settings>(inputData?.settings || { kerfWidth: 0.125, units: 'imperial', optimizationMode: 'less_waste', trimming: { top: 0, bottom: 0, left: 0, right: 0 } });
   const [result, setResult] = useState<PackingResult | undefined>(initialResult);
 
-  const recalculate = useCallback((updatedPieces: CutPiece[]) => {
-    const validPieces = updatedPieces.filter((p) => p.width > 0 && p.height > 0 && p.quantity > 0);
-    const validSheets = sheets.filter((s) => s.width > 0 && s.height > 0 && s.quantity > 0);
+  const recalculate = useCallback((updatedPieces?: CutPiece[], updatedSheets?: StockSheet[], updatedSettings?: Settings) => {
+    const p = updatedPieces || pieces;
+    const sh = updatedSheets || sheets;
+    const set = updatedSettings || settings;
+    const validPieces = p.filter((pc) => pc.width > 0 && pc.height > 0 && pc.quantity > 0);
+    const validSheets = sh.filter((s) => s.width > 0 && s.height > 0 && s.quantity > 0);
     if (validPieces.length === 0 || validSheets.length === 0) return;
-    const newResult = packPieces(validPieces, validSheets, settings);
+    const newResult = packPieces(validPieces, validSheets, set);
     setResult(newResult);
     (global as any).__packingResult = newResult;
-    (global as any).__packingInput = { pieces: updatedPieces, sheets, settings };
-  }, [sheets, settings]);
+    (global as any).__packingInput = { pieces: p, sheets: sh, settings: set };
+  }, [pieces, sheets, settings]);
 
   function updatePiece(index: number, field: 'width' | 'height' | 'quantity', value: number) {
     const updated = [...pieces];
     updated[index] = { ...updated[index], [field]: value };
     setPieces(updated);
     recalculate(updated);
+  }
+
+  function updateSheet(index: number, field: keyof StockSheet, value: string | number) {
+    const updated = [...sheets];
+    updated[index] = { ...updated[index], [field]: value };
+    setSheets(updated);
+    recalculate(undefined, updated);
+  }
+
+  function updateSettings(newSettings: Settings) {
+    setSettings(newSettings);
+    recalculate(undefined, undefined, newSettings);
   }
 
   const suggestions = useMemo(() => {
@@ -153,7 +201,15 @@ export default function ResultsScreen() {
               onPress={() => setShowEditor(!showEditor)}
             >
               <Text style={{ color: colors.tint, fontSize: 13, fontWeight: '600' }}>
-                {showEditor ? 'Hide Editor' : 'Edit Pieces'}
+                {showEditor ? 'Hide Pieces' : 'Edit Pieces'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerBtn, { borderColor: colors.tint }]}
+              onPress={() => setShowSettings(!showSettings)}
+            >
+              <Text style={{ color: colors.tint, fontSize: 13, fontWeight: '600' }}>
+                {showSettings ? 'Hide Settings' : 'Settings'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -203,7 +259,7 @@ export default function ResultsScreen() {
             <View style={[styles.editorHeaderInputs, { backgroundColor: colors.card }]}>
               <Text style={[styles.editorHeaderCol, { color: colors.secondaryText }]}>Width</Text>
               <Text style={[styles.editorHeaderSpacer, { color: colors.card }]}>×</Text>
-              <Text style={[styles.editorHeaderCol, { color: colors.secondaryText }]}>Height</Text>
+              <Text style={[styles.editorHeaderCol, { color: colors.secondaryText }]}>Length</Text>
               <Text style={[styles.editorHeaderSpacer, { color: colors.card }]}>×</Text>
               <Text style={[styles.editorHeaderQty, { color: colors.secondaryText }]}>Qty</Text>
             </View>
@@ -214,19 +270,19 @@ export default function ResultsScreen() {
                 {piece.label || 'Unnamed'}
               </Text>
               <View style={[styles.editorInputs, { backgroundColor: colors.card }]}>
-                <TextInput
+                <FractionInput
                   style={[styles.editorInput, { color: colors.text, borderColor: colors.border }]}
-                  value={piece.width ? String(piece.width) : ''}
-                  onChangeText={(t) => updatePiece(i, 'width', parseFraction(t))}
+                  value={piece.width}
+                  onValueChange={(v) => updatePiece(i, 'width', v)}
                   placeholder="W"
                   placeholderTextColor={colors.secondaryText}
                 />
                 <Text style={[styles.editorX, { color: colors.secondaryText }]}>×</Text>
-                <TextInput
+                <FractionInput
                   style={[styles.editorInput, { color: colors.text, borderColor: colors.border }]}
-                  value={piece.height ? String(piece.height) : ''}
-                  onChangeText={(t) => updatePiece(i, 'height', parseFraction(t))}
-                  placeholder="H"
+                  value={piece.height}
+                  onValueChange={(v) => updatePiece(i, 'height', v)}
+                  placeholder="L"
                   placeholderTextColor={colors.secondaryText}
                 />
                 <Text style={[styles.editorX, { color: colors.secondaryText }]}>×</Text>
@@ -241,6 +297,77 @@ export default function ResultsScreen() {
               </View>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* Settings Editor */}
+      {showSettings && (
+        <View style={[styles.editorCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.editorTitle, { color: colors.text }]}>Settings</Text>
+          <Text style={[styles.editorHint, { color: colors.secondaryText }]}>
+            Changes recalculate instantly
+          </Text>
+
+          {/* Stock Sheets */}
+          <Text style={{ color: colors.secondaryText, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginTop: 8, marginBottom: 4 }}>Stock Sheets</Text>
+          {sheets.map((sheet, i) => (
+            <View key={sheet.id || i} style={[styles.editorRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+              <Text style={[styles.editorLabel, { color: colors.text }]} numberOfLines={1}>
+                {sheet.label || 'Sheet'}
+              </Text>
+              <View style={[styles.editorInputs, { backgroundColor: colors.card }]}>
+                <FractionInput
+                  style={[styles.editorInput, { color: colors.text, borderColor: colors.border }]}
+                  value={sheet.width}
+                  onValueChange={(v) => updateSheet(i, 'width', v)}
+                  placeholder="W"
+                  placeholderTextColor={colors.secondaryText}
+                />
+                <Text style={[styles.editorX, { color: colors.secondaryText }]}>×</Text>
+                <FractionInput
+                  style={[styles.editorInput, { color: colors.text, borderColor: colors.border }]}
+                  value={sheet.height}
+                  onValueChange={(v) => updateSheet(i, 'height', v)}
+                  placeholder="L"
+                  placeholderTextColor={colors.secondaryText}
+                />
+                <Text style={[styles.editorX, { color: colors.secondaryText }]}>×</Text>
+                <TextInput
+                  style={[styles.editorInput, styles.editorQty, { color: colors.text, borderColor: colors.border }]}
+                  value={sheet.quantity ? String(sheet.quantity) : ''}
+                  onChangeText={(t) => updateSheet(i, 'quantity', parseInt(t) || 0)}
+                  keyboardType="number-pad"
+                  placeholder="#"
+                  placeholderTextColor={colors.secondaryText}
+                />
+              </View>
+            </View>
+          ))}
+
+          {/* Kerf */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 8 }}>
+            <Text style={{ color: colors.secondaryText, fontSize: 13 }}>Blade Kerf:</Text>
+            <FractionInput
+              style={[styles.editorInput, { color: colors.text, borderColor: colors.border, width: 70 }]}
+              value={settings.kerfWidth}
+              onValueChange={(v) => updateSettings({ ...settings, kerfWidth: v })}
+              placeholder="0.125"
+              placeholderTextColor={colors.secondaryText}
+            />
+          </View>
+
+          {/* Grain */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: colors.secondaryText, fontSize: 13 }}>Consider Grain:</Text>
+            <TouchableOpacity
+              style={{ borderWidth: 1.5, borderColor: colors.tint, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: settings.considerGrain ? colors.tint : 'transparent' }}
+              onPress={() => updateSettings({ ...settings, considerGrain: !settings.considerGrain })}
+            >
+              <Text style={{ color: settings.considerGrain ? '#fff' : colors.tint, fontSize: 12, fontWeight: '600' }}>
+                {settings.considerGrain ? 'On' : 'Off'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 

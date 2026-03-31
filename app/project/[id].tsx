@@ -312,7 +312,7 @@ export default function ProjectEditorScreen() {
                 </View>
                 <Text style={[styles.times, { color: colors.secondaryText }]}>×</Text>
                 <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>H</Text>
+                  <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>L</Text>
                   <FractionInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
                     value={sheet.height}
@@ -564,7 +564,7 @@ export default function ProjectEditorScreen() {
                 </View>
                 <Text style={[styles.times, { color: colors.secondaryText }]}>×</Text>
                 <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>H</Text>
+                  <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>L</Text>
                   <FractionInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
                     value={piece.height}
