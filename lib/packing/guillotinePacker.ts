@@ -64,122 +64,6 @@ const SORT_STRATEGIES: ((a: PieceToPlace, b: PieceToPlace) => number)[] = [
   (a, b) => (b.width + b.height) - (a.width + a.height),
 ];
 
-function fitPiece(
-  piece: PieceToPlace,
-  rect: FreeRect
-): 'normal' | 'rotated' | null {
-  if (piece.width <= rect.width && piece.height <= rect.height) {
-    return 'normal';
-  }
-  if (
-    piece.canRotate &&
-    piece.height <= rect.width &&
-    piece.width <= rect.height
-  ) {
-    return 'rotated';
-  }
-  return null;
-}
-
-/**
- * Best Short Side Fit — minimizes leftover on the shorter side.
- */
-function findBestRect(
-  piece: PieceToPlace,
-  freeRects: FreeRect[],
-  kerf: number
-): { rectIndex: number; orientation: 'normal' | 'rotated' } | null {
-  let bestIndex = -1;
-  let bestOrientation: 'normal' | 'rotated' = 'normal';
-  let bestShortSide = Infinity;
-
-  for (let i = 0; i < freeRects.length; i++) {
-    const rect = freeRects[i];
-    const orientation = fitPiece(piece, rect);
-    if (!orientation) continue;
-
-    const placedW = orientation === 'normal' ? piece.width : piece.height;
-    const placedH = orientation === 'normal' ? piece.height : piece.width;
-
-    const leftoverW = rect.width - placedW - kerf;
-    const leftoverH = rect.height - placedH - kerf;
-    const shortSide = Math.min(
-      Math.max(0, leftoverW),
-      Math.max(0, leftoverH)
-    );
-
-    if (shortSide < bestShortSide) {
-      bestShortSide = shortSide;
-      bestIndex = i;
-      bestOrientation = orientation;
-    }
-  }
-
-  if (bestIndex === -1) return null;
-  return { rectIndex: bestIndex, orientation: bestOrientation };
-}
-
-/**
- * Guillotine split: after placing a piece, split remaining space
- * into two rectangles using an edge-to-edge cut.
- * Chooses the split that produces the larger single rectangle.
- */
-function guillotineSplit(
-  rect: FreeRect,
-  placedW: number,
-  placedH: number,
-  kerf: number
-): FreeRect[] {
-  const newRects: FreeRect[] = [];
-  const rightW = rect.width - placedW - kerf;
-  const bottomH = rect.height - placedH - kerf;
-
-  const areaA_right = rightW * rect.height;
-  const areaA_bottom = placedW * bottomH;
-  const areaB_right = rightW * placedH;
-  const areaB_bottom = rect.width * bottomH;
-
-  const maxA = Math.max(areaA_right, areaA_bottom);
-  const maxB = Math.max(areaB_right, areaB_bottom);
-
-  if (maxA >= maxB) {
-    if (rightW > 0) {
-      newRects.push({
-        x: rect.x + placedW + kerf,
-        y: rect.y,
-        width: rightW,
-        height: rect.height,
-      });
-    }
-    if (bottomH > 0) {
-      newRects.push({
-        x: rect.x,
-        y: rect.y + placedH + kerf,
-        width: placedW,
-        height: bottomH,
-      });
-    }
-  } else {
-    if (rightW > 0) {
-      newRects.push({
-        x: rect.x + placedW + kerf,
-        y: rect.y,
-        width: rightW,
-        height: placedH,
-      });
-    }
-    if (bottomH > 0) {
-      newRects.push({
-        x: rect.x,
-        y: rect.y + placedH + kerf,
-        width: rect.width,
-        height: bottomH,
-      });
-    }
-  }
-
-  return newRects;
-}
 
 /**
  * Compute the usable area of a stock sheet after applying edge trimming.
@@ -198,7 +82,12 @@ function applyTrimming(
 }
 
 /**
- * Pack pieces onto a single stock sheet.
+ * Pack pieces onto a single stock sheet using shelf (strip) packing.
+ * The strip height is set by the first piece placed. Pieces with height
+ * <= the strip height can share the strip — shorter pieces just leave
+ * trim waste. This ensures all main cut lines are continuous edge-to-edge
+ * (table-saw friendly): one horizontal cut across the full sheet separates
+ * each strip, and vertical cuts within each strip go top-to-bottom.
  */
 function packSingleSheet(
   pieces: PieceToPlace[],
@@ -207,42 +96,113 @@ function packSingleSheet(
 ): { placements: Placement[]; placedIndices: Set<number>; freeRects: FreeRect[] } {
   const kerf = settings.kerfWidth;
   const usable = applyTrimming(sheet, settings);
-  const freeRects: FreeRect[] = [
-    { x: usable.x, y: usable.y, width: usable.width, height: usable.height },
-  ];
   const placements: Placement[] = [];
   const placedIndices = new Set<number>();
+  const freeRects: FreeRect[] = [];
 
-  for (let i = 0; i < pieces.length; i++) {
-    if (placedIndices.has(i)) continue;
+  let currentY = usable.y;
 
-    const piece = pieces[i];
+  while (currentY < usable.y + usable.height - 0.5) {
+    const remainingHeight = usable.y + usable.height - currentY;
 
-    // Material matching: skip if piece has a material that doesn't match (only when enabled)
-    if (settings.considerMaterial && piece.material && piece.material !== sheet.material) continue;
+    // Determine strip height from the first unplaced piece that fits
+    let stripHeight = 0;
+    for (let i = 0; i < pieces.length; i++) {
+      if (placedIndices.has(i)) continue;
+      const p = pieces[i];
+      if (settings.considerMaterial && p.material && p.material !== sheet.material) continue;
 
-    const best = findBestRect(piece, freeRects, kerf);
-    if (!best) continue;
+      if (p.height <= remainingHeight && p.width <= usable.width) {
+        stripHeight = p.height;
+        break;
+      }
+      if (p.canRotate && p.width <= remainingHeight && p.height <= usable.width) {
+        stripHeight = p.width;
+        break;
+      }
+    }
 
-    const rect = freeRects[best.rectIndex];
-    const rotated = best.orientation === 'rotated';
-    const placedW = rotated ? piece.height : piece.width;
-    const placedH = rotated ? piece.width : piece.height;
+    if (stripHeight === 0) break;
 
-    placements.push({
-      pieceId: piece.pieceId,
-      pieceLabel: piece.pieceLabel,
-      x: rect.x,
-      y: rect.y,
-      width: placedW,
-      height: placedH,
-      rotated,
+    // Helper to try placing a piece in the current strip
+    const tryPlace = (i: number, exactOnly: boolean): boolean => {
+      if (placedIndices.has(i)) return false;
+      const p = pieces[i];
+      if (settings.considerMaterial && p.material && p.material !== sheet.material) return false;
+
+      let placedW: number | null = null;
+      let placedH: number | null = null;
+      let rotated = false;
+
+      // Normal orientation
+      if (p.height <= stripHeight && currentX + p.width <= usable.x + usable.width + 0.01) {
+        if (!exactOnly || p.height === stripHeight) {
+          placedW = p.width;
+          placedH = p.height;
+        }
+      }
+      // Rotated orientation
+      if (placedW === null && p.canRotate &&
+          p.width <= stripHeight && currentX + p.height <= usable.x + usable.width + 0.01) {
+        if (!exactOnly || p.width === stripHeight) {
+          placedW = p.height;
+          placedH = p.width;
+          rotated = true;
+        }
+      }
+
+      if (placedW === null || placedH === null) return false;
+
+      placements.push({
+        pieceId: p.pieceId,
+        pieceLabel: p.pieceLabel,
+        x: currentX,
+        y: currentY,
+        width: placedW,
+        height: placedH,
+        rotated,
+      });
+      placedIndices.add(i);
+      currentX += placedW + kerf;
+      return true;
+    };
+
+    // Fill strip in two passes:
+    // Pass 1: exact height match (no trim waste)
+    // Pass 2: shorter pieces that fit (some trim waste, but uses strip width)
+    let currentX = usable.x;
+    let piecesInStrip = 0;
+
+    for (let i = 0; i < pieces.length; i++) {
+      if (tryPlace(i, true)) piecesInStrip++;
+    }
+    for (let i = 0; i < pieces.length; i++) {
+      if (tryPlace(i, false)) piecesInStrip++;
+    }
+
+    // Remaining width in strip is an offcut
+    const remainW = usable.x + usable.width - currentX + kerf;
+    if (remainW > 0.5 && piecesInStrip > 0) {
+      freeRects.push({
+        x: currentX - kerf,
+        y: currentY,
+        width: remainW,
+        height: stripHeight,
+      });
+    }
+
+    currentY += stripHeight + kerf;
+  }
+
+  // Remaining height at bottom is an offcut
+  const remainH = usable.y + usable.height - currentY + kerf;
+  if (remainH > 0.5) {
+    freeRects.push({
+      x: usable.x,
+      y: currentY - kerf,
+      width: usable.width,
+      height: remainH,
     });
-
-    const newRects = guillotineSplit(rect, placedW, placedH, kerf);
-    freeRects.splice(best.rectIndex, 1, ...newRects);
-
-    placedIndices.add(i);
   }
 
   return { placements, placedIndices, freeRects };

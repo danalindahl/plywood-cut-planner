@@ -96,8 +96,8 @@ export default function CuttingDiagram({ layout, sheetIndex, zoom = 1.0, showLab
                 width={pw}
                 height={ph}
                 fill={color}
-                stroke="#fff"
-                strokeWidth={0.5}
+                stroke="rgba(0,0,0,0.25)"
+                strokeWidth={0.3}
                 opacity={0.85}
               />
               {/* Piece label */}

@@ -20,6 +20,43 @@ import { parseFraction } from '@/lib/fractions';
 import { exportPiecesToCsv, importPiecesFromCsv } from '@/lib/csv';
 import { useProject } from '@/hooks/useProjects';
 
+/**
+ * Text input that allows typing decimals and fractions without clobbering
+ * intermediate input (e.g. "7." won't snap back to "7").
+ * Parses to a number only on blur.
+ */
+function FractionInput({ value, onValueChange, placeholder, style, placeholderTextColor }: {
+  value: number;
+  onValueChange: (n: number) => void;
+  placeholder?: string;
+  style?: any;
+  placeholderTextColor?: string;
+}) {
+  const [text, setText] = useState(value ? String(value) : '');
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) {
+      setText(value ? String(value) : '');
+    }
+  }, [value, focused]);
+
+  return (
+    <TextInput
+      style={style}
+      value={text}
+      onChangeText={setText}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        onValueChange(parseFraction(text));
+      }}
+      placeholder={placeholder}
+      placeholderTextColor={placeholderTextColor}
+    />
+  );
+}
+
 export default function ProjectEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
@@ -265,10 +302,10 @@ export default function ProjectEditorScreen() {
               <View style={[styles.row, { backgroundColor: colors.card }]}>
                 <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
                   <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>W</Text>
-                  <TextInput
+                  <FractionInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                    value={sheet.width ? String(sheet.width) : ''}
-                    onChangeText={(t) => updateSheet(i, 'width', parseFraction(t))}
+                    value={sheet.width}
+                    onValueChange={(v) => updateSheet(i, 'width', v)}
                     placeholder="48"
                     placeholderTextColor={colors.secondaryText}
                   />
@@ -276,10 +313,10 @@ export default function ProjectEditorScreen() {
                 <Text style={[styles.times, { color: colors.secondaryText }]}>×</Text>
                 <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
                   <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>H</Text>
-                  <TextInput
+                  <FractionInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                    value={sheet.height ? String(sheet.height) : ''}
-                    onChangeText={(t) => updateSheet(i, 'height', parseFraction(t))}
+                    value={sheet.height}
+                    onValueChange={(v) => updateSheet(i, 'height', v)}
                     placeholder="96"
                     placeholderTextColor={colors.secondaryText}
                   />
@@ -334,10 +371,10 @@ export default function ProjectEditorScreen() {
             {/* Kerf */}
             <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
               <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Blade Kerf ({unitLabel}):</Text>
-              <TextInput
+              <FractionInput
                 style={[styles.input, styles.kerfInput, { color: colors.text, borderColor: colors.border }]}
-                value={settings.kerfWidth ? String(settings.kerfWidth) : ''}
-                onChangeText={(t) => setSettings({ ...settings, kerfWidth: parseFraction(t) })}
+                value={settings.kerfWidth}
+                onValueChange={(v) => setSettings({ ...settings, kerfWidth: v })}
                 placeholder="0.125"
                 placeholderTextColor={colors.secondaryText}
               />
@@ -390,10 +427,10 @@ export default function ProjectEditorScreen() {
             {/* Min offcut dimension */}
             <View style={[styles.settingsRow, { backgroundColor: colors.card }]}>
               <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>Min offcut ({unitLabel}):</Text>
-              <TextInput
+              <FractionInput
                 style={[styles.input, styles.kerfInput, { color: colors.text, borderColor: colors.border }]}
-                value={settings.minOffcutDimension ? String(settings.minOffcutDimension) : ''}
-                onChangeText={(t) => setSettings({ ...settings, minOffcutDimension: parseFraction(t) })}
+                value={settings.minOffcutDimension || 6}
+                onValueChange={(v) => setSettings({ ...settings, minOffcutDimension: v })}
                 placeholder="6"
                 placeholderTextColor={colors.secondaryText}
               />
@@ -448,11 +485,11 @@ export default function ProjectEditorScreen() {
                     <Text style={[styles.trimLabel, { color: colors.secondaryText }]}>
                       {side.charAt(0).toUpperCase() + side.slice(1)}
                     </Text>
-                    <TextInput
+                    <FractionInput
                       style={[styles.input, styles.trimInput, { color: colors.text, borderColor: colors.border }]}
-                      value={settings.trimming[side] ? String(settings.trimming[side]) : ''}
-                      onChangeText={(t) =>
-                        setSettings({ ...settings, trimming: { ...settings.trimming, [side]: parseFraction(t) } })
+                      value={settings.trimming[side]}
+                      onValueChange={(v) =>
+                        setSettings({ ...settings, trimming: { ...settings.trimming, [side]: v } })
                       }
                       placeholder="0"
                       placeholderTextColor={colors.secondaryText}
@@ -517,10 +554,10 @@ export default function ProjectEditorScreen() {
               <View style={[styles.row, { backgroundColor: colors.card }]}>
                 <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
                   <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>W</Text>
-                  <TextInput
+                  <FractionInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                    value={piece.width ? String(piece.width) : ''}
-                    onChangeText={(t) => updatePiece(i, 'width', parseFraction(t))}
+                    value={piece.width}
+                    onValueChange={(v) => updatePiece(i, 'width', v)}
                     placeholder="0"
                     placeholderTextColor={colors.secondaryText}
                   />
@@ -528,10 +565,10 @@ export default function ProjectEditorScreen() {
                 <Text style={[styles.times, { color: colors.secondaryText }]}>×</Text>
                 <View style={[styles.inputGroup, { backgroundColor: colors.card }]}>
                   <Text style={[styles.inputLabel, { color: colors.secondaryText }]}>H</Text>
-                  <TextInput
+                  <FractionInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                    value={piece.height ? String(piece.height) : ''}
-                    onChangeText={(t) => updatePiece(i, 'height', parseFraction(t))}
+                    value={piece.height}
+                    onValueChange={(v) => updatePiece(i, 'height', v)}
                     placeholder="0"
                     placeholderTextColor={colors.secondaryText}
                   />

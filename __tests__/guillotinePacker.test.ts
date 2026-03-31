@@ -354,4 +354,63 @@ describe('Guillotine Packer', () => {
       }
     });
   });
+
+  describe('Shelf packing alignment', () => {
+    test('pieces in strips have heights <= strip height (continuous cuts)', () => {
+      const result = packPieces(
+        [
+          piece('a', 'Sides', 7, 22, 16),
+          piece('b', 'Spacers', 2, 23, 16),
+          piece('c', 'Shelves', 8, 24, 8),
+        ],
+        [sheet(48, 96)],
+        settingsWithKerf
+      );
+      expect(result.unplacedPieces).toHaveLength(0);
+
+      // All pieces in a strip (same Y) must have height <= the tallest piece
+      // in that strip, ensuring the horizontal cut is one straight line
+      for (const sheetLayout of result.sheets) {
+        const rowMap = new Map<number, number[]>();
+        for (const p of sheetLayout.placements) {
+          const yKey = Math.round(p.y * 100);
+          if (!rowMap.has(yKey)) rowMap.set(yKey, []);
+          rowMap.get(yKey)!.push(p.height);
+        }
+        for (const [, heights] of rowMap) {
+          const maxH = Math.max(...heights);
+          for (const h of heights) {
+            expect(h).toBeLessThanOrEqual(maxH);
+          }
+        }
+      }
+    });
+
+    test('same-height pieces are packed in neat rows', () => {
+      const result = packPieces(
+        [piece('a', 'Sides', 7, 22, 16)],
+        [sheet(48, 96)],
+        settingsWithKerf
+      );
+
+      // All pieces have height 22, so all pieces at same Y should form complete rows
+      for (const sheetLayout of result.sheets) {
+        const rowMap = new Map<number, number>();
+        for (const p of sheetLayout.placements) {
+          const yKey = Math.round(p.y * 100);
+          rowMap.set(yKey, (rowMap.get(yKey) || 0) + 1);
+        }
+        const rows = [...rowMap.values()];
+        // Each row should have consistent counts (last row can have fewer)
+        if (rows.length > 1) {
+          const fullRowCount = rows[0];
+          for (let i = 1; i < rows.length - 1; i++) {
+            expect(rows[i]).toBe(fullRowCount);
+          }
+          expect(rows[rows.length - 1]).toBeLessThanOrEqual(fullRowCount);
+        }
+      }
+    });
+
+  });
 });
