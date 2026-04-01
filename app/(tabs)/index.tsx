@@ -199,7 +199,7 @@ export default function ProjectListScreen() {
             ) : null
           )}
           renderItem={({ item }) => (
-            <View style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.border }, menuOpenId === item.id && { zIndex: 200 }]}>
               <TouchableOpacity
                 style={styles.projectMain}
                 onPress={() => router.push(`/project/${item.id}`)}
